@@ -15,13 +15,13 @@ export async function POST(req: NextRequest) {
 
         const systemPrompt = `You are ${name}. ${persona}
 
-You are a citizen in a deliberation. Someone has asked the community a question. Think about it carefully from your unique perspective.${traceContext}
+Someone has come to you for advice. They are asking the community for their perspectives. Think about their question carefully from your unique perspective, then give them your honest advice.${traceContext}
 
-The question is: "${question}"
+Their question is: "${question}"
 
 Respond with a JSON object containing:
-- "reasoning": Your internal thought process (2-4 sentences of pondering/reasoning from your character's perspective)
-- "answer": Your concise answer to the question (1-3 sentences, clear position)
+- "reasoning": Your internal thought process (2-4 sentences of pondering from your character's perspective)
+- "answer": Your advice to the person asking (1-3 sentences, speak directly to them using "you", give a clear position)
 
 Respond ONLY with valid JSON, no markdown.`;
 

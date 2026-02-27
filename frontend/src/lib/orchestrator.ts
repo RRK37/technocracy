@@ -9,6 +9,13 @@ import type { SimAgent } from './SimAgent';
 import { DISCUSSION_CONFIG } from './world';
 import type { ThemeCluster, DiscussionGroup } from '@/src/types/agent';
 
+// ── Helpers ────────────────────────────────────────────────────────
+
+/** Always returns a usable display name for an agent */
+function agentName(agent: SimAgent): string {
+    return agent.data.name || `Agent ${agent.id.replace('character_', '#')}`;
+}
+
 // ── API callers (Next.js API routes) ───────────────────────────────
 
 async function callThink(
@@ -152,7 +159,7 @@ export async function runDeliberation(
 
         try {
             const result = await callThink(
-                agent.data.name,
+                agentName(agent),
                 agent.data.persona,
                 runtime.trace,
                 question,
@@ -195,7 +202,7 @@ export async function runDeliberation(
     for (const group of groups) {
         const memberAgents = simAgents.filter((a) => group.agentIds.includes(a.id));
         const participants = memberAgents.map((a) => ({
-            name: a.data.name,
+            name: agentName(a),
             persona: a.data.persona,
         }));
 
@@ -211,7 +218,7 @@ export async function runDeliberation(
                     participants,
                     question,
                     conversationSoFar,
-                    { name: speaker.data.name, persona: speaker.data.persona, trace: runtime.trace },
+                    { name: agentName(speaker), persona: speaker.data.persona, trace: runtime.trace },
                 );
 
                 speaker.showSpeech(
@@ -219,7 +226,8 @@ export async function runDeliberation(
                     4000,
                 );
 
-                const entry = `${result.speaker}: ${result.message}`;
+                // Use our known speaker name, not the LLM-returned one
+                const entry = `${agentName(speaker)}: ${result.message}`;
                 group.conversationLog.push(entry);
                 conversationSoFar += entry + '\n\n';
 
@@ -248,13 +256,17 @@ export async function runDeliberation(
         agent.resetToWandering();
     }
 
-    const rethinkPromises = simAgents.map(async (agent) => {
+    // Only re-think agents who participated in a discussion
+    const discussedAgentIds = new Set(groups.flatMap((g) => g.agentIds));
+    const discussedAgents = simAgents.filter((a) => discussedAgentIds.has(a.id));
+
+    const rethinkPromises = discussedAgents.map(async (agent) => {
         const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
         if (!runtime) return;
 
         try {
             const result = await callThink(
-                agent.data.name,
+                agentName(agent),
                 agent.data.persona,
                 runtime.trace,
                 question,
