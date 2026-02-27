@@ -162,7 +162,9 @@ async function runThinkCycle(
         .sort(() => Math.random() - 0.5)
         .slice(0, Math.min(8, simAgents.length));
 
-    const thinkPromises = simAgents.map(async (agent) => {
+    const BATCH_SIZE = 20;
+
+    const processAgent = async (agent: SimAgent) => {
         const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
         if (!runtime) return;
 
@@ -196,9 +198,13 @@ async function runThinkCycle(
         } catch (err) {
             console.error(`Think failed for ${agent.id}:`, err);
         }
-    });
+    };
 
-    await Promise.all(thinkPromises);
+    // Process in batches of 20
+    for (let i = 0; i < simAgents.length; i += BATCH_SIZE) {
+        const batch = simAgents.slice(i, i + BATCH_SIZE);
+        await Promise.all(batch.map(processAgent));
+    }
 }
 
 /** Run final clustering and save to history */

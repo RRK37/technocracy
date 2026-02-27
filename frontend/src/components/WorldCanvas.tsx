@@ -35,8 +35,11 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
 
                 if (cancelled) return;
 
-                // Pick NUM_AGENTS random characters
-                const allKeys = Object.keys(json.characters);
+                // Only use characters 1-100
+                const allKeys = Object.keys(json.characters).filter((key) => {
+                    const num = parseInt(key.replace(/\D/g, ''), 10);
+                    return num >= 1 && num <= 100;
+                });
                 const shuffled = allKeys.sort(() => Math.random() - 0.5);
                 const selected = shuffled.slice(0, WORLD_CONFIG.NUM_AGENTS);
 
@@ -188,9 +191,12 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
         );
     }, []);
 
+    const dragStart = useRef({ x: 0, y: 0 });
+
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         isDragging.current = true;
         lastMouse.current = { x: e.clientX, y: e.clientY };
+        dragStart.current = { x: e.clientX, y: e.clientY };
     }, []);
 
     const handleMouseMove = useCallback((e: React.MouseEvent) => {
@@ -203,8 +209,34 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
         lastMouse.current = { x: e.clientX, y: e.clientY };
     }, []);
 
-    const handleMouseUp = useCallback(() => {
+    const handleMouseUp = useCallback((e: React.MouseEvent) => {
         isDragging.current = false;
+
+        // Only treat as click if mouse didn't move much (not a drag)
+        const dx = e.clientX - dragStart.current.x;
+        const dy = e.clientY - dragStart.current.y;
+        if (Math.abs(dx) > 5 || Math.abs(dy) > 5) return;
+
+        // Convert screen coords to world coords
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const cam = cameraRef.current;
+        const rect = canvas.getBoundingClientRect();
+        const screenX = e.clientX - rect.left;
+        const screenY = e.clientY - rect.top;
+        const worldX = (screenX - canvas.width / 2) / cam.zoom + cam.x;
+        const worldY = (screenY - canvas.height / 2) / cam.zoom + cam.y;
+
+        // Find agent under click (within hit radius)
+        const hitRadius = AGENT_CONFIG.WIDTH * 0.6;
+        for (const agent of simAgentsRef.current) {
+            const adx = agent.x - worldX;
+            const ady = agent.y - worldY;
+            if (Math.sqrt(adx * adx + ady * ady) < hitRadius) {
+                useAgentStore.getState().setSelectedAgentId(agent.id);
+                return;
+            }
+        }
     }, []);
 
     return (

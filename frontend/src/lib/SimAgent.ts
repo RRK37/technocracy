@@ -283,13 +283,6 @@ export class SimAgent {
                 AGENT_CONFIG.IDLE_FRAMES, AGENT_CONFIG.IDLE_ROWS);
         }
 
-        // Name label
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,0.85)';
-        ctx.font = '10px Inter, sans-serif';
-        ctx.textAlign = 'center';
-        ctx.fillText(this.data.name || `Agent ${this.data.id}`, this.x, this.y + h / 2 + 12);
-        ctx.restore();
 
         // Thought bubble (thinking state)
         if (this.thoughtText) {

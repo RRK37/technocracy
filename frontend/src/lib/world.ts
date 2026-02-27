@@ -5,7 +5,7 @@
 export const WORLD_CONFIG = {
     WIDTH: 2000,
     HEIGHT: 1200,
-    NUM_AGENTS: 21, // Configurable: how many agents to spawn
+    NUM_AGENTS: 70, // Configurable: how many agents to spawn
 } as const;
 
 export const AGENT_CONFIG = {
@@ -38,7 +38,7 @@ export const CAMERA_CONFIG = {
 } as const;
 
 export const DISCUSSION_CONFIG = {
-    CIRCLE_RADIUS: 60,       // radius of the discussion circle
+    CIRCLE_RADIUS: 42,       // radius of the discussion circle (0.7x)
     MIN_GROUP_SIZE: 2,
     MAX_GROUP_SIZE: 6,
     PROXIMITY_THRESHOLD: 200, // distance for "nearby" agents
