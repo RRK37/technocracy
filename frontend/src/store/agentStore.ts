@@ -7,15 +7,25 @@ import type { AgentRuntime, ThemeCluster, DiscussionGroup, QuestionHistory } fro
 
 export type Phase = 'idle' | 'thinking' | 'discussing' | 're-thinking' | 'clustering' | 'complete';
 
+export interface ConversationMessage {
+    role: 'user' | 'system';
+    text: string;
+}
+
 interface AgentStore {
     // Agents
     agents: AgentRuntime[];
     setAgents: (agents: AgentRuntime[]) => void;
     updateAgent: (id: string, patch: Partial<AgentRuntime>) => void;
 
-    // Question
+    // Question (first question only, used for history)
     question: string;
     setQuestion: (q: string) => void;
+
+    // Conversation thread (all messages in current session)
+    messages: ConversationMessage[];
+    addMessage: (msg: ConversationMessage) => void;
+    clearMessages: () => void;
 
     // Phase
     phase: Phase;
@@ -41,6 +51,14 @@ interface AgentStore {
     // Sidebar tab
     sidebarTab: 'results' | 'agents' | 'history';
     setSidebarTab: (tab: 'results' | 'agents' | 'history') => void;
+
+    // Pending message queue (messages sent while busy)
+    pendingMessages: string[];
+    queueMessage: (msg: string) => void;
+    drainPending: () => string[];
+
+    // Session management
+    resetSession: () => void;
 }
 
 export const useAgentStore = create<AgentStore>((set) => ({
@@ -53,6 +71,10 @@ export const useAgentStore = create<AgentStore>((set) => ({
 
     question: '',
     setQuestion: (question) => set({ question }),
+
+    messages: [],
+    addMessage: (msg) => set((s) => ({ messages: [...s.messages, msg] })),
+    clearMessages: () => set({ messages: [] }),
 
     phase: 'idle',
     setPhase: (phase) => set({ phase }),
@@ -72,4 +94,26 @@ export const useAgentStore = create<AgentStore>((set) => ({
 
     sidebarTab: 'results',
     setSidebarTab: (sidebarTab) => set({ sidebarTab }),
+
+    pendingMessages: [],
+    queueMessage: (msg) => set((s) => ({ pendingMessages: [...s.pendingMessages, msg] })),
+    drainPending: (): string[] => {
+        let msgs: string[] = [];
+        set((s) => {
+            msgs = s.pendingMessages;
+            return { pendingMessages: [] };
+        });
+        return msgs;
+    },
+
+    resetSession: () =>
+        set((s) => ({
+            question: '',
+            messages: [],
+            pendingMessages: [],
+            phase: 'idle',
+            clusteredResults: [],
+            discussionGroups: [],
+            agents: s.agents.map((a) => ({ ...a, answer: '', trace: [] })),
+        })),
 }));

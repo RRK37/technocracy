@@ -136,6 +136,143 @@ export function arrangeInCircle(
     }
 }
 
+// ── Queue helpers ──────────────────────────────────────────────────
+
+/** Check if there are pending messages from the user */
+function hasPending(): boolean {
+    return useAgentStore.getState().pendingMessages.length > 0;
+}
+
+/** Drain pending messages, return combined text */
+function consumePending(): string {
+    const store = useAgentStore.getState();
+    const msgs = store.drainPending();
+    return msgs.join('\n');
+}
+
+/** Run a think cycle for all agents with current context */
+async function runThinkCycle(
+    simAgents: SimAgent[],
+    question: string,
+    extraContext?: string,
+): Promise<void> {
+    const store = useAgentStore.getState();
+
+    const thinkingSample = [...simAgents]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.min(8, simAgents.length));
+
+    const thinkPromises = simAgents.map(async (agent) => {
+        const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
+        if (!runtime) return;
+
+        try {
+            const traceForCall = extraContext
+                ? [...runtime.trace, extraContext]
+                : runtime.trace;
+
+            const result = await callThink(
+                agentName(agent),
+                agent.data.persona,
+                traceForCall,
+                question,
+            );
+
+            const freshRuntime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
+            const currentTrace = freshRuntime?.trace || runtime.trace;
+
+            const traceEntry = extraContext
+                ? `[Follow-up] ${result.reasoning}`
+                : result.reasoning;
+
+            store.updateAgent(agent.id, {
+                trace: [...currentTrace, traceEntry],
+                answer: result.answer,
+            });
+
+            if (thinkingSample.includes(agent)) {
+                agent.showThought(result.answer.slice(0, 80) + (result.answer.length > 80 ? '...' : ''), 6000);
+            }
+        } catch (err) {
+            console.error(`Think failed for ${agent.id}:`, err);
+        }
+    });
+
+    await Promise.all(thinkPromises);
+}
+
+/** Run final clustering and save to history */
+async function finalCluster(
+    simAgents: SimAgent[],
+    question: string,
+    clusterInterval: ReturnType<typeof setInterval>,
+    saveHistory: boolean,
+): Promise<void> {
+    clearInterval(clusterInterval);
+    const store = useAgentStore.getState();
+    store.setPhase('clustering');
+
+    const latestAgents = useAgentStore.getState().agents;
+    const answers = latestAgents
+        .filter((a: { answer: string }) => a.answer)
+        .map((a: { id: string; answer: string }) => ({ agentId: a.id, answer: a.answer }));
+
+    try {
+        const { themes } = await callCluster(answers, question);
+        store.setClusteredResults(themes);
+    } catch (err) {
+        console.error('Clustering failed:', err);
+    }
+
+    store.setPhase('complete');
+
+    // Save to history only on the first question
+    if (saveHistory) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const latestResults = useAgentStore.getState().clusteredResults;
+                const { data, error } = await supabase
+                    .from('question_history')
+                    .insert({
+                        user_id: user.id,
+                        question,
+                        clustered_results: {
+                            themes: latestResults,
+                            total_agents: simAgents.length,
+                        },
+                    })
+                    .select()
+                    .single();
+
+                if (data && !error) {
+                    store.addHistory(data);
+                }
+            }
+        } catch (err) {
+            console.error('History save failed:', err);
+        }
+    }
+}
+
+/** Start background clustering interval (every 5s) */
+function startBackgroundClustering(question: string): ReturnType<typeof setInterval> {
+    return setInterval(async () => {
+        const currentAgents = useAgentStore.getState().agents;
+        const currentAnswers = currentAgents
+            .filter((a: { answer: string }) => a.answer)
+            .map((a: { id: string; answer: string }) => ({ agentId: a.id, answer: a.answer }));
+        if (currentAnswers.length < 2) return;
+        try {
+            const { themes } = await callCluster(currentAnswers, question);
+            const phase = useAgentStore.getState().phase;
+            if (phase !== 'clustering' && phase !== 'complete') {
+                useAgentStore.getState().setClusteredResults(themes);
+            }
+        } catch (_) { /* ignore interim failures */ }
+    }, 5000);
+}
+
 // ── Main orchestration ─────────────────────────────────────────────
 
 export async function runDeliberation(
@@ -147,42 +284,24 @@ export async function runDeliberation(
     store.setPhase('thinking');
     store.setClusteredResults([]);
 
+    const clusterInterval = startBackgroundClustering(question);
+
     // ── Phase 1: Initial Think ──
-    const thinkingSample = [...simAgents]
-        .sort(() => Math.random() - 0.5)
-        .slice(0, Math.min(8, simAgents.length));
+    await runThinkCycle(simAgents, question);
 
-    // Fire all think calls in parallel
-    const thinkPromises = simAgents.map(async (agent) => {
-        const runtime = store.agents.find((a: { id: string }) => a.id === agent.id);
-        if (!runtime) return;
-
-        try {
-            const result = await callThink(
-                agentName(agent),
-                agent.data.persona,
-                runtime.trace,
-                question,
-            );
-
-            // Update store
-            const freshRuntime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
-            const currentTrace = freshRuntime?.trace || runtime.trace;
-            store.updateAgent(agent.id, {
-                trace: [...currentTrace, result.reasoning],
-                answer: result.answer,
-            });
-
-            // Show thought bubble on sampled agents
-            if (thinkingSample.includes(agent)) {
-                agent.showThought(result.answer.slice(0, 80) + (result.answer.length > 80 ? '...' : ''), 6000);
-            }
-        } catch (err) {
-            console.error(`Think failed for ${agent.id}:`, err);
+    // ── Check queue after Phase 1 ──
+    if (hasPending()) {
+        const followUp = consumePending();
+        store.setPhase('thinking');
+        await runThinkCycle(simAgents, question, `--- User follow-up ---\n${followUp}`);
+        // Skip discussion, go directly to final cluster
+        await finalCluster(simAgents, question, clusterInterval, true);
+        // Check if more messages arrived during clustering
+        if (hasPending()) {
+            await processFollowUps(simAgents, question);
         }
-    });
-
-    await Promise.all(thinkPromises);
+        return;
+    }
 
     // ── Phase 2: Form Discussion Groups ──
     store.setPhase('discussing');
@@ -190,15 +309,13 @@ export async function runDeliberation(
     const groups = findNearbyGroups(simAgents);
     store.setDiscussionGroups(groups);
 
-    // Arrange agents into circles
     for (const group of groups) {
         arrangeInCircle(simAgents, group);
     }
 
-    // Wait for agents to walk to positions
     await new Promise((r) => setTimeout(r, 3000));
 
-    // ── Phase 2b: Sequential discussion in each group ──
+    // ── Phase 2b: Sequential discussion ──
     for (const group of groups) {
         const memberAgents = simAgents.filter((a) => group.agentIds.includes(a.id));
         const participants = memberAgents.map((a) => ({
@@ -226,7 +343,6 @@ export async function runDeliberation(
                     4000,
                 );
 
-                // Use our known speaker name, not the LLM-returned one
                 const entry = `${agentName(speaker)}: ${result.message}`;
                 group.conversationLog.push(entry);
                 conversationSoFar += entry + '\n\n';
@@ -237,7 +353,6 @@ export async function runDeliberation(
             }
         }
 
-        // Append conversation to each member's trace
         for (const member of memberAgents) {
             const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === member.id);
             if (!runtime) continue;
@@ -249,6 +364,17 @@ export async function runDeliberation(
         group.completed = true;
     }
 
+    // ── Check queue after Phase 2 ──
+    if (hasPending()) {
+        const followUp = consumePending();
+        for (const agent of simAgents) agent.resetToWandering();
+        store.setPhase('thinking');
+        await runThinkCycle(simAgents, question, `--- User follow-up ---\n${followUp}`);
+        await finalCluster(simAgents, question, clusterInterval, true);
+        if (hasPending()) await processFollowUps(simAgents, question);
+        return;
+    }
+
     // ── Phase 3: Re-think ──
     store.setPhase('re-thinking');
 
@@ -256,7 +382,6 @@ export async function runDeliberation(
         agent.resetToWandering();
     }
 
-    // Only re-think agents who participated in a discussion
     const discussedAgentIds = new Set(groups.flatMap((g) => g.agentIds));
     const discussedAgents = simAgents.filter((a) => discussedAgentIds.has(a.id));
 
@@ -283,46 +408,53 @@ export async function runDeliberation(
 
     await Promise.all(rethinkPromises);
 
-    // ── Phase 4: Cluster answers ──
-    store.setPhase('clustering');
+    // ── Phase 4: Final cluster + save ──
+    await finalCluster(simAgents, question, clusterInterval, true);
 
-    const latestAgents = useAgentStore.getState().agents;
-    const answers = latestAgents
-        .filter((a: { answer: string }) => a.answer)
-        .map((a: { id: string; answer: string }) => ({ agentId: a.id, answer: a.answer }));
-
-    try {
-        const { themes } = await callCluster(answers, question);
-        store.setClusteredResults(themes);
-    } catch (err) {
-        console.error('Clustering failed:', err);
+    // ── Check queue after completion ──
+    if (hasPending()) {
+        await processFollowUps(simAgents, question);
     }
+}
 
-    // ── Phase 5: Save to history ──
-    store.setPhase('complete');
+/**
+ * Process follow-up messages: drain queue → re-think → re-cluster.
+ * Called from Sidebar when session is idle, or from phase boundary checks.
+ * Loops until the queue is empty.
+ */
+export async function processFollowUps(
+    simAgents: SimAgent[],
+    question?: string,
+): Promise<void> {
+    const store = useAgentStore.getState();
+    const q = question || store.question;
 
-    try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-            const latestResults = useAgentStore.getState().clusteredResults;
-            const { data, error } = await supabase
-                .from('question_history')
-                .insert({
-                    user_id: user.id,
-                    question,
-                    clustered_results: {
-                        themes: latestResults,
-                        total_agents: simAgents.length,
-                    },
-                })
-                .select()
-                .single();
+    while (hasPending()) {
+        const followUp = consumePending();
+        store.setPhase('thinking');
 
-            if (data && !error) {
-                store.addHistory(data);
-            }
+        // Build conversation context
+        const allMessages = useAgentStore.getState().messages;
+        const conversationContext = allMessages
+            .map((m) => `${m.role === 'user' ? 'User' : 'System'}: ${m.text}`)
+            .join('\n');
+
+        await runThinkCycle(simAgents, q, `--- Conversation ---\n${conversationContext}`);
+
+        // Quick cluster
+        store.setPhase('clustering');
+        const latestAgents = useAgentStore.getState().agents;
+        const answers = latestAgents
+            .filter((a: { answer: string }) => a.answer)
+            .map((a: { id: string; answer: string }) => ({ agentId: a.id, answer: a.answer }));
+
+        try {
+            const { themes } = await callCluster(answers, q);
+            store.setClusteredResults(themes);
+        } catch (err) {
+            console.error('Re-clustering failed:', err);
         }
-    } catch (err) {
-        console.error('History save failed:', err);
+
+        store.setPhase('complete');
     }
 }

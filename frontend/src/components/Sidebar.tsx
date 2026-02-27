@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import { useAgentStore, type Phase } from '@/src/store/agentStore';
 import ResultsPanel from './ResultsPanel';
 import AgentCard from './AgentCard';
 import AgentDetailModal from './AgentDetailModal';
 import HistoryPanel from './HistoryPanel';
-import { runDeliberation } from '@/src/lib/orchestrator';
+import { runDeliberation, processFollowUps } from '@/src/lib/orchestrator';
 import type { SimAgent } from '@/src/lib/SimAgent';
 
 interface SidebarProps {
@@ -15,24 +15,56 @@ interface SidebarProps {
 
 export default function Sidebar({ simAgentsRef }: SidebarProps) {
     const {
-        question, phase, agents, clusteredResults,
+        question, phase, agents, clusteredResults, messages,
         sidebarTab, setSidebarTab,
         selectedAgentId, setSelectedAgentId,
+        addMessage, queueMessage, resetSession,
     } = useAgentStore();
 
     const [input, setInput] = useState('');
-    const [submitting, setSubmitting] = useState(false);
+    const [running, setRunning] = useState(false);
+    const hasAsked = question !== '';
+    const isBusy = phase !== 'idle' && phase !== 'complete';
 
     const handleSubmit = useCallback(async () => {
-        if (!input.trim() || submitting) return;
-        setSubmitting(true);
-        try {
-            await runDeliberation(simAgentsRef.current, input.trim());
-        } catch (err) {
-            console.error('Deliberation error:', err);
+        if (!input.trim()) return;
+        const text = input.trim();
+        setInput('');
+
+        if (!hasAsked) {
+            // First message = initial question → full deliberation
+            addMessage({ role: 'user', text });
+            setRunning(true);
+            try {
+                await runDeliberation(simAgentsRef.current, text);
+            } catch (err) {
+                console.error('Deliberation error:', err);
+            }
+            setRunning(false);
+        } else if (isBusy || running) {
+            // Pipeline is running → queue the message for the next phase boundary
+            queueMessage(text);
+            // Show it in the thread immediately
+            addMessage({ role: 'user', text });
+        } else {
+            // Pipeline is idle → run follow-up immediately
+            addMessage({ role: 'user', text });
+            queueMessage(text);
+            setRunning(true);
+            try {
+                await processFollowUps(simAgentsRef.current);
+            } catch (err) {
+                console.error('Follow-up error:', err);
+            }
+            setRunning(false);
         }
-        setSubmitting(false);
-    }, [input, submitting, simAgentsRef]);
+    }, [input, simAgentsRef, hasAsked, isBusy, running, addMessage, queueMessage]);
+
+    const handleNewQuestion = useCallback(() => {
+        resetSession();
+        setInput('');
+        setRunning(false);
+    }, [resetSession]);
 
     const phaseLabel: Record<Phase, string> = {
         idle: '',
@@ -47,16 +79,51 @@ export default function Sidebar({ simAgentsRef }: SidebarProps) {
         <div className="sidebar">
             {/* Header */}
             <div className="sidebar-header">
-                <h1 className="sidebar-title">Technocracy</h1>
-                <p className="sidebar-subtitle">Crowd deliberation engine</p>
+                <div className="sidebar-header-row">
+                    <div>
+                        <h1 className="sidebar-title">Technocracy</h1>
+                        <p className="sidebar-subtitle">Crowd deliberation engine</p>
+                    </div>
+                    {hasAsked && (
+                        <button className="new-question-btn" onClick={handleNewQuestion} disabled={running}>
+                            New Question
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Question Input */}
+            {/* Conversation thread + Input */}
             <div className="question-section">
+                {/* Message thread */}
+                {messages.length > 0 && (
+                    <div className="message-thread">
+                        {messages.map((msg, i) => (
+                            <div key={i} className={`thread-msg thread-msg-${msg.role}`}>
+                                <span className="thread-role">{msg.role === 'user' ? 'You' : 'System'}</span>
+                                <span className="thread-text">{msg.text}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Phase indicator */}
+                {phase !== 'idle' && phase !== 'complete' && (
+                    <div className="phase-indicator">
+                        {phaseLabel[phase]}
+                    </div>
+                )}
+
+                {/* Input — always enabled, queues when busy */}
                 <div className="question-input-wrap">
                     <textarea
                         className="question-input"
-                        placeholder="Ask the crowd a question..."
+                        placeholder={
+                            !hasAsked
+                                ? 'Ask the crowd a question...'
+                                : isBusy || running
+                                    ? 'Type a follow-up (will be processed next)...'
+                                    : 'Send a follow-up message...'
+                        }
                         value={input}
                         onChange={(e) => setInput(e.target.value)}
                         onKeyDown={(e) => {
@@ -65,31 +132,16 @@ export default function Sidebar({ simAgentsRef }: SidebarProps) {
                                 handleSubmit();
                             }
                         }}
-                        disabled={submitting}
                         rows={2}
                     />
                     <button
                         className="question-submit"
                         onClick={handleSubmit}
-                        disabled={submitting || !input.trim()}
+                        disabled={!input.trim()}
                     >
-                        {submitting ? '...' : '→'}
+                        →
                     </button>
                 </div>
-
-                {/* Phase indicator */}
-                {phase !== 'idle' && (
-                    <div className="phase-indicator">
-                        {phaseLabel[phase]}
-                    </div>
-                )}
-
-                {/* Current question */}
-                {question && (
-                    <div className="current-question">
-                        <span className="current-question-label">Q:</span> {question}
-                    </div>
-                )}
             </div>
 
             {/* Tab bar */}

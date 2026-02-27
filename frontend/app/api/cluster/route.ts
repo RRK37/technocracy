@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
 Here are all the individual answers:
 ${answerList}
 
-Group these answers into common themes. For each theme, provide a short label and count how many answers fit that theme. An answer can fit into multiple themes if appropriate.
+Group these answers into common themes. Each answer must belong to exactly ONE theme — do not count the same answer in multiple themes. The total of all counts must equal exactly ${answers.length}.
 
 If the question is a yes/no question, make sure "Yes" and "No" are themes.
 

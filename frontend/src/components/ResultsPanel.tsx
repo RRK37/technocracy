@@ -29,13 +29,12 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
         );
     }
 
-    const totalVotes = clusters.reduce((s, c) => s + c.count, 0);
+    const totalVotes = clusters.reduce((s, c) => s + c.count, 0) || totalAgents;
 
     return (
         <div className="results-panel">
             <div className="results-summary">
-                <span className="results-total">{totalVotes}</span> responses from{' '}
-                <span className="results-agents">{totalAgents}</span> agents
+                <span className="results-total">{totalAgents}</span> agents deliberating
             </div>
 
             <div className="results-clusters">
