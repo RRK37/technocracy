@@ -1,0 +1,12 @@
+{
+  "id": 2,
+  "gender": "male",
+  "skin_color": "bronze",
+  "hair_color": "dark_brown",
+  "hair_style": "natural",
+  "shirt_color": "black",
+  "leg_color": "green",
+  "shoe_color": "green",
+  "leg_type": "pants",
+  "description": "A boy with bronze skin, dark brown natural hair, wearing a black shirt, green trousers, and green shoes."
+}

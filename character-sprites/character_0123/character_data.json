@@ -1,0 +1,12 @@
+{
+  "id": 123,
+  "gender": "female",
+  "skin_color": "taupe",
+  "hair_color": "orange",
+  "hair_style": "long_messy",
+  "shirt_color": "orange",
+  "leg_color": "black",
+  "shoe_color": "tan",
+  "leg_type": "pants",
+  "description": "A girl with taupe skin, orange long messy hair, wearing a orange shirt, black trousers, and tan shoes."
+}

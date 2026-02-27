@@ -1,0 +1,12 @@
+{
+  "id": 100,
+  "gender": "male",
+  "skin_color": "light",
+  "hair_color": "strawberry",
+  "hair_style": "natural",
+  "shirt_color": "slate",
+  "leg_color": "slate",
+  "shoe_color": "red",
+  "leg_type": "pants",
+  "description": "A boy with light skin, strawberry natural hair, wearing a slate shirt, slate trousers, and red shoes."
+}

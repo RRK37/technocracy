@@ -1,0 +1,12 @@
+{
+  "id": 1000,
+  "gender": "male",
+  "skin_color": "black",
+  "hair_color": "dark_brown",
+  "hair_style": "bob",
+  "shirt_color": "brown",
+  "leg_color": "charcoal",
+  "shoe_color": "navy",
+  "leg_type": "pants",
+  "description": "A boy with dark skin, dark brown a bob haircut, wearing a brown shirt, charcoal trousers, and navy shoes."
+}

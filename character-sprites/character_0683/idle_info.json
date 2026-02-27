@@ -1,0 +1,15 @@
+{
+  "sprite_name": "idle",
+  "generated": "2025-11-20T18:05:21.779601",
+  "layers": [
+    "body/bodies/female/idle/light.png",
+    "head/heads/human/female/idle/light.png",
+    "head/nose/big/adult/idle/light.png",
+    "eyes/human/adult/default/idle/brown.png",
+    "hair/bangs_bun/adult/idle/green.png",
+    "torso/clothes/longsleeve/longsleeve/female/idle/red.png",
+    "legs/leggings/thin/idle/charcoal.png",
+    "feet/shoes/revised/thin/idle/maroon.png"
+  ],
+  "note": "This is a generated sprite using the LPC assets. See CREDITS.csv for full attribution."
+}

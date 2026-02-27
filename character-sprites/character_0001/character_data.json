@@ -1,0 +1,12 @@
+{
+  "id": 1,
+  "gender": "male",
+  "skin_color": "bronze",
+  "hair_color": "chestnut",
+  "hair_style": "twists_straight",
+  "shirt_color": "slate",
+  "leg_color": "navy",
+  "shoe_color": "maroon",
+  "leg_type": "pants",
+  "description": "A boy with bronze skin, chestnut straight twists, wearing a slate shirt, navy trousers, and maroon shoes."
+}

@@ -1,0 +1,15 @@
+{
+  "sprite_name": "sit",
+  "generated": "2025-11-20T18:05:14.625650",
+  "layers": [
+    "body/bodies/female/sit/taupe.png",
+    "head/heads/human/female/sit/taupe.png",
+    "head/nose/big/adult/sit/taupe.png",
+    "eyes/human/adult/default/sit/brown.png",
+    "hair/half_up/adult/sit/dark_brown.png",
+    "torso/clothes/longsleeve/longsleeve/female/sit/gray.png",
+    "legs/leggings/thin/sit/charcoal.png",
+    "feet/shoes/revised/thin/sit/navy.png"
+  ],
+  "note": "This is a generated sprite using the LPC assets. See CREDITS.csv for full attribution."
+}

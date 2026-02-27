@@ -1,0 +1,12 @@
+{
+  "id": 42,
+  "gender": "male",
+  "skin_color": "light",
+  "hair_color": "black",
+  "hair_style": "swoop",
+  "shirt_color": "pink",
+  "leg_color": "purple",
+  "shoe_color": "green",
+  "leg_type": "pants",
+  "description": "A boy with light skin, black swooped hair, wearing a pink shirt, purple trousers, and green shoes."
+}

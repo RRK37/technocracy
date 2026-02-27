@@ -1,0 +1,15 @@
+{
+  "sprite_name": "walk",
+  "generated": "2025-11-20T18:05:28.359771",
+  "layers": [
+    "body/bodies/female/walk/black.png",
+    "head/heads/human/female/walk/black.png",
+    "head/nose/big/adult/walk/black.png",
+    "eyes/human/adult/default/walk/brown.png",
+    "hair/long_straight/adult/walk/green.png",
+    "torso/clothes/longsleeve/longsleeve/female/walk/blue.png",
+    "legs/skirts/plain/female/walk/tan.png",
+    "feet/shoes/revised/thin/walk/green.png"
+  ],
+  "note": "This is a generated sprite using the LPC assets. See CREDITS.csv for full attribution."
+}

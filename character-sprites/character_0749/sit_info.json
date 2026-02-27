@@ -1,0 +1,15 @@
+{
+  "sprite_name": "sit",
+  "generated": "2025-11-20T18:05:23.125364",
+  "layers": [
+    "body/bodies/male/sit/light.png",
+    "head/heads/human/male/sit/light.png",
+    "head/nose/big/adult/sit/light.png",
+    "eyes/human/adult/default/sit/brown.png",
+    "hair/cornrows/adult/sit/dark_brown.png",
+    "torso/clothes/longsleeve/longsleeve/male/sit/charcoal.png",
+    "legs/pants/male/sit/black.png",
+    "feet/shoes/basic/male/sit/blue.png"
+  ],
+  "note": "This is a generated sprite using the LPC assets. See CREDITS.csv for full attribution."
+}
