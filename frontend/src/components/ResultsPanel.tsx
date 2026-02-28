@@ -1,7 +1,9 @@
 'use client';
 
+import { useState } from 'react';
 import type { ThemeCluster } from '@/src/types/agent';
 import type { Phase } from '@/src/store/agentStore';
+import { useAgentStore } from '@/src/store/agentStore';
 
 interface ResultsPanelProps {
     question: string;
@@ -11,6 +13,10 @@ interface ResultsPanelProps {
 }
 
 export default function ResultsPanel({ question, clusters, phase, totalAgents }: ResultsPanelProps) {
+    const [expandedCluster, setExpandedCluster] = useState<number | null>(null);
+    const agents = useAgentStore((s) => s.agents);
+    const setSelectedAgentId = useAgentStore((s) => s.setSelectedAgentId);
+
     if (!question) {
         return (
             <div className="results-empty">
@@ -40,8 +46,10 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
             <div className="results-clusters">
                 {clusters.map((cluster, i) => {
                     const pct = totalVotes > 0 ? Math.round((cluster.count / totalVotes) * 100) : 0;
+                    const isExpanded = expandedCluster === i;
                     return (
-                        <div key={i} className="cluster-card">
+                        <div key={i} className="cluster-card" style={{ cursor: 'pointer' }}
+                            onClick={() => setExpandedCluster(isExpanded ? null : i)}>
                             <div className="cluster-header">
                                 <span className="cluster-label">{cluster.label}</span>
                                 <span className="cluster-count">
@@ -54,6 +62,30 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
                                     style={{ width: `${pct}%` }}
                                 />
                             </div>
+                            {isExpanded && (
+                                <div className="cluster-agents" onClick={(e) => e.stopPropagation()}>
+                                    {cluster.agentIds.map((agentId) => {
+                                        const agent = agents.find((a) => a.id === agentId);
+                                        if (!agent) return null;
+                                        return (
+                                            <div
+                                                key={agentId}
+                                                className="cluster-agent-row"
+                                                onClick={() => setSelectedAgentId(agentId)}
+                                            >
+                                                <span className="cluster-agent-name">{agent.data.name}</span>
+                                                <span className="cluster-agent-answer">
+                                                    {agent.answer
+                                                        ? agent.answer.length > 80
+                                                            ? agent.answer.slice(0, 80) + '...'
+                                                            : agent.answer
+                                                        : 'No answer yet'}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     );
                 })}

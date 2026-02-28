@@ -435,6 +435,41 @@ body {
   transition: width 0.5s ease;
 }
 
+.cluster-agents {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.cluster-agent-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cluster-agent-row:hover {
+  background: rgba(100, 100, 200, 0.1);
+}
+
+.cluster-agent-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.cluster-agent-answer {
+  font-size: 11px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
 /* ── Agent Cards ────────────────────────────────────────── */
 
 .agents-grid {

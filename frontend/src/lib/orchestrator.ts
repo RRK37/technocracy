@@ -313,16 +313,21 @@ export async function runDeliberation(
     store.setPhase('discussing');
 
     const groups = findNearbyGroups(simAgents);
-    store.setDiscussionGroups(groups);
+    store.setDiscussionGroups([]);
 
-    for (const group of groups) {
+    // Process each group in parallel, but staggered by 2 seconds
+    const groupPromises = groups.map(async (group, index) => {
+        // Stagger starts
+        await new Promise((r) => setTimeout(r, index * 2000));
+
+        // Add this group to the active canvas
+        useAgentStore.setState((s) => ({ discussionGroups: [...s.discussionGroups, group] }));
+
+        // Agents walk to circle
         arrangeInCircle(simAgents, group);
-    }
+        await new Promise((r) => setTimeout(r, 3000));
 
-    await new Promise((r) => setTimeout(r, 3000));
-
-    // ── Phase 2b: Sequential discussion ──
-    for (const group of groups) {
+        // ── Phase 2b: Sequential discussion within this group ──
         const memberAgents = simAgents.filter((a) => group.agentIds.includes(a.id));
         const participants = memberAgents.map((a) => ({
             name: agentName(a),
@@ -359,6 +364,7 @@ export async function runDeliberation(
             }
         }
 
+        // Save conversation trace to all members
         for (const member of memberAgents) {
             const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === member.id);
             if (!runtime) continue;
@@ -368,7 +374,11 @@ export async function runDeliberation(
         }
 
         group.completed = true;
-    }
+        // Trigger a re-render of groups by mutating state slightly or cloning array
+        useAgentStore.setState((s) => ({ discussionGroups: [...s.discussionGroups] }));
+    });
+
+    await Promise.all(groupPromises);
 
     // ── Check queue after Phase 2 ──
     if (hasPending()) {
