@@ -36,7 +36,7 @@ Keep theme labels concise (2-5 words). Order by count descending. Respond ONLY w
         const response = await openai.chat.completions.create({
             model: 'gpt-4o-mini',
             messages: [{ role: 'system', content: systemPrompt }],
-            max_tokens: 500,
+            max_tokens: 2000,
             temperature: 0.3,
             response_format: { type: 'json_object' },
         });

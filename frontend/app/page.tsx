@@ -6,11 +6,13 @@ import { useAuth } from '@/src/providers/AuthProvider';
 import WorldCanvas from '@/src/components/WorldCanvas';
 import Sidebar from '@/src/components/Sidebar';
 import type { SimAgent } from '@/src/lib/SimAgent';
+import { useMemoryExtraction } from '@/src/hooks/useMemoryExtraction';
 
 export default function HomePage() {
   const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const simAgentsRef = useRef<SimAgent[]>([]);
+  const { extractMemories } = useMemoryExtraction();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -44,7 +46,7 @@ export default function HomePage() {
         </button>
       </div>
 
-      <Sidebar simAgentsRef={simAgentsRef} />
+      <Sidebar simAgentsRef={simAgentsRef} extractMemories={extractMemories} />
     </div>
   );
 }

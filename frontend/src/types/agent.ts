@@ -98,6 +98,15 @@ export interface QuestionHistory {
     created_at: string;
 }
 
+/** A stored user memory */
+export interface UserMemory {
+    id: string;
+    user_id: string;
+    memory: string;
+    source_question: string;
+    created_at: string;
+}
+
 /** Discussion group */
 export interface DiscussionGroup {
     agentIds: string[];

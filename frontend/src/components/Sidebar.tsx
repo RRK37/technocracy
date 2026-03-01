@@ -11,9 +11,10 @@ import type { SimAgent } from '@/src/lib/SimAgent';
 
 interface SidebarProps {
     simAgentsRef: React.MutableRefObject<SimAgent[]>;
+    extractMemories?: (messages: { role: string; text: string }[], question: string) => void;
 }
 
-export default function Sidebar({ simAgentsRef }: SidebarProps) {
+export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps) {
     const {
         question, phase, agents, clusteredResults, messages,
         sidebarTab, setSidebarTab,
@@ -61,10 +62,13 @@ export default function Sidebar({ simAgentsRef }: SidebarProps) {
     }, [input, simAgentsRef, hasAsked, isBusy, running, addMessage, queueMessage]);
 
     const handleNewQuestion = useCallback(() => {
+        if (extractMemories) {
+            extractMemories(messages, question);
+        }
         resetSession();
         setInput('');
         setRunning(false);
-    }, [resetSession]);
+    }, [resetSession, extractMemories, messages, question]);
 
     const phaseLabel: Record<Phase, string> = {
         idle: '',

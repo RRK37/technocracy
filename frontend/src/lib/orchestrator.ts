@@ -290,10 +290,31 @@ export async function runDeliberation(
     store.setPhase('thinking');
     store.setClusteredResults([]);
 
+    // ── Recall user memories ──
+    let memoryContext: string | undefined;
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.access_token) {
+            const res = await fetch('/api/memories/recall', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ question, accessToken: session.access_token }),
+            });
+            if (res.ok) {
+                const { memories } = await res.json();
+                if (memories && memories.length > 0) {
+                    memoryContext = `Things known about the person asking:\n${memories.map((m: string) => `- ${m}`).join('\n')}`;
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Memory recall failed:', err);
+    }
+
     const clusterInterval = startBackgroundClustering(question);
 
     // ── Phase 1: Initial Think ──
-    await runThinkCycle(simAgents, question);
+    await runThinkCycle(simAgents, question, memoryContext);
 
     // ── Check queue after Phase 1 ──
     if (hasPending()) {
