@@ -20,7 +20,9 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
     if (!question) {
         return (
             <div className="results-empty">
-                <div className="results-empty-icon">💭</div>
+                <svg width="36" height="36" viewBox="0 0 24 24" fill="none" style={{ opacity: 0.3, marginBottom: 14 }}>
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
                 <p>Ask a question to see how the crowd thinks</p>
             </div>
         );

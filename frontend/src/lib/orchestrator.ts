@@ -162,7 +162,7 @@ async function runThinkCycle(
         .sort(() => Math.random() - 0.5)
         .slice(0, Math.min(8, simAgents.length));
 
-    const BATCH_SIZE = 20;
+    const BATCH_SIZE = 34;
 
     const processAgent = async (agent: SimAgent) => {
         const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);

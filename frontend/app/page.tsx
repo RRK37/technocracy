@@ -39,14 +39,9 @@ export default function HomePage() {
     <div className="app-layout">
       <div className="canvas-area">
         <WorldCanvas onAgentsReady={handleAgentsReady} />
-
-        {/* Sign out button */}
-        <button className="signout-btn" onClick={signOut}>
-          Sign Out
-        </button>
       </div>
 
-      <Sidebar simAgentsRef={simAgentsRef} extractMemories={extractMemories} />
+      <Sidebar simAgentsRef={simAgentsRef} extractMemories={extractMemories} onSignOut={signOut} />
     </div>
   );
 }

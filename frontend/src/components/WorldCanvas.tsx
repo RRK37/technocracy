@@ -17,7 +17,7 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
     const animFrameRef = useRef<number>(0);
 
     // Camera state
-    const cameraRef = useRef<{ x: number; y: number; zoom: number }>({ x: 0, y: 0, zoom: CAMERA_CONFIG.DEFAULT_ZOOM });
+    const cameraRef = useRef<{ x: number; y: number; zoom: number }>({ x: WORLD_CONFIG.WIDTH / 2, y: WORLD_CONFIG.HEIGHT / 2, zoom: CAMERA_CONFIG.DEFAULT_ZOOM });
     const isDragging = useRef(false);
     const lastMouse = useRef({ x: 0, y: 0 });
 
@@ -124,7 +124,7 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
             ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
 
             // Fill background
-            ctx!.fillStyle = '#0f0f1a';
+            ctx!.fillStyle = '#e0dcd6';
             ctx!.fillRect(0, 0, canvas!.width, canvas!.height);
 
             // Apply camera transform
@@ -136,10 +136,6 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
             // Draw grid
             drawGrid(ctx!, WORLD_CONFIG.WIDTH, WORLD_CONFIG.HEIGHT);
 
-            // Draw world boundary
-            ctx!.strokeStyle = 'rgba(100, 150, 255, 0.15)';
-            ctx!.lineWidth = 2;
-            ctx!.strokeRect(0, 0, WORLD_CONFIG.WIDTH, WORLD_CONFIG.HEIGHT);
 
             // Draw discussion circles
             const groups = useAgentStore.getState().discussionGroups;
@@ -161,7 +157,7 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
             const currentPhase = useAgentStore.getState().phase;
             if (currentPhase !== 'idle' && currentPhase !== 'complete') {
                 ctx!.save();
-                ctx!.fillStyle = 'rgba(100, 200, 255, 0.9)';
+                ctx!.fillStyle = 'rgba(80, 80, 80, 0.7)';
                 ctx!.font = '14px Inter, sans-serif';
                 ctx!.textAlign = 'left';
                 const phaseLabels: Record<string, string> = {

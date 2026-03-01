@@ -5,7 +5,7 @@
 export const WORLD_CONFIG = {
     WIDTH: 2000,
     HEIGHT: 1200,
-    NUM_AGENTS: 70, // Configurable: how many agents to spawn
+    NUM_AGENTS: 100, // Configurable: how many agents to spawn
 } as const;
 
 export const AGENT_CONFIG = {

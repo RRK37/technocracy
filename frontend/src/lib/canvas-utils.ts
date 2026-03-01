@@ -31,13 +31,14 @@ export function drawSpeechBubble(
     ctx: CanvasRenderingContext2D,
     x: number, y: number,
     text: string,
-    color: string = 'white',
-    borderColor: string = '#333',
+    _color?: string,
+    _borderColor?: string,
 ): void {
-    const { PADDING, BORDER_RADIUS, POINTER_SIZE, MAX_WIDTH, FONT_SIZE } = SPEECH_CONFIG;
+    const { PADDING, POINTER_SIZE, MAX_WIDTH, FONT_SIZE } = SPEECH_CONFIG;
+    const RADIUS = 4;
 
     ctx.save();
-    ctx.font = `${FONT_SIZE}px 'Inter', sans-serif`;
+    ctx.font = `${FONT_SIZE}px 'DM Sans', -apple-system, sans-serif`;
 
     // Word wrap
     const words = text.split(' ');
@@ -65,32 +66,27 @@ export function drawSpeechBubble(
     const bubbleY = y - bubbleH - POINTER_SIZE - 6;
 
     // Shadow
-    ctx.shadowColor = 'rgba(0,0,0,0.15)';
-    ctx.shadowBlur = 8;
-    ctx.shadowOffsetY = 2;
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
+    ctx.shadowBlur = 10;
+    ctx.shadowOffsetY = 3;
 
-    // Bubble body
-    ctx.fillStyle = color;
-    ctx.strokeStyle = borderColor;
-    ctx.lineWidth = 1.5;
-    drawRoundedRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, BORDER_RADIUS);
+    // Bubble body — light glass
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    drawRoundedRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, RADIUS);
     ctx.fill();
     ctx.shadowColor = 'transparent';
-    ctx.stroke();
 
-    // Pointer
+    // Pointer — small triangle, same fill, no border
     ctx.beginPath();
     ctx.moveTo(x, y - 6);
-    ctx.lineTo(x - POINTER_SIZE, bubbleY + bubbleH);
-    ctx.lineTo(x + POINTER_SIZE, bubbleY + bubbleH);
+    ctx.lineTo(x - 5, bubbleY + bubbleH);
+    ctx.lineTo(x + 5, bubbleY + bubbleH);
     ctx.closePath();
-    ctx.fillStyle = color;
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
     ctx.fill();
-    ctx.strokeStyle = borderColor;
-    ctx.stroke();
 
-    // Text
-    ctx.fillStyle = '#1a1a2e';
+    // Text — dark on light
+    ctx.fillStyle = '#2a2a2a';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (let i = 0; i < lines.length; i++) {
@@ -108,7 +104,7 @@ export function drawThoughtBubble(
     x: number, y: number,
     text: string,
 ): void {
-    drawSpeechBubble(ctx, x, y, text, '#f0f0ff', '#8888cc');
+    drawSpeechBubble(ctx, x, y, text);
 }
 
 /**
@@ -154,13 +150,10 @@ export function drawDiscussionCircle(
     cx: number, cy: number, radius: number,
 ): void {
     ctx.save();
-    ctx.strokeStyle = 'rgba(100, 200, 255, 0.3)';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([6, 4]);
     ctx.beginPath();
     ctx.arc(cx, cy, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.03)';
+    ctx.fill();
     ctx.restore();
 }
 
@@ -172,7 +165,7 @@ export function drawGrid(
     worldW: number, worldH: number, gridSize: number = 100,
 ): void {
     ctx.save();
-    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.strokeStyle = 'rgba(0,0,0,0.05)';
     ctx.lineWidth = 1;
     for (let x = 0; x <= worldW; x += gridSize) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, worldH); ctx.stroke();

@@ -40,8 +40,8 @@ export default function LoginPage() {
         <div className="login-page">
             <div className="login-card">
                 <div className="login-header">
-                    <h1 className="login-title">Technocracy</h1>
-                    <p className="login-subtitle">Crowd deliberation engine</p>
+                    <img src="/logo-black.png" alt="Technocracy" className="login-logo" />
+                    <p className="login-subtitle">Collective intelligence engine</p>
                 </div>
 
                 <form onSubmit={handleSubmit} className="login-form">

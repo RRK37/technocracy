@@ -13,9 +13,10 @@ import { useVoiceInput } from '@/src/hooks/useVoiceInput';
 interface SidebarProps {
     simAgentsRef: React.MutableRefObject<SimAgent[]>;
     extractMemories?: (messages: { role: string; text: string }[], question: string) => void;
+    onSignOut?: () => void;
 }
 
-export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps) {
+export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: SidebarProps) {
     const {
         question, phase, agents, clusteredResults, messages,
         sidebarTab, setSidebarTab,
@@ -76,11 +77,11 @@ export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps)
 
     const phaseLabel: Record<Phase, string> = {
         idle: '',
-        thinking: '🧠 Thinking...',
-        discussing: '💬 Discussing...',
-        're-thinking': '🧠 Reconsidering...',
-        clustering: '📊 Analyzing...',
-        complete: '✅ Complete',
+        thinking: 'Thinking...',
+        discussing: 'Discussing...',
+        're-thinking': 'Reconsidering...',
+        clustering: 'Analyzing...',
+        complete: 'Complete',
     };
 
     return (
@@ -89,12 +90,12 @@ export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps)
             <div className="sidebar-header">
                 <div className="sidebar-header-row">
                     <div>
-                        <h1 className="sidebar-title">Technocracy</h1>
-                        <p className="sidebar-subtitle">Crowd deliberation engine</p>
+                        <img src="/logo-black.png" alt="Technocracy" className="sidebar-logo" />
+                        <p className="sidebar-subtitle">Collective intelligence engine</p>
                     </div>
                     {hasAsked && (
                         <button className="new-question-btn" onClick={handleNewQuestion} disabled={running}>
-                            New Question
+                            + New
                         </button>
                     )}
                 </div>
@@ -142,35 +143,45 @@ export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps)
                         }}
                         rows={2}
                     />
-                    <button
-                        className={`voice-btn${isRecording ? ' recording' : ''}${isTranscribing ? ' transcribing' : ''}`}
-                        onClick={toggleRecording}
-                        disabled={isTranscribing}
-                        title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing...' : 'Voice input'}
-                    >
-                        {isTranscribing ? '⏳' : '🎙'}
-                    </button>
-                    <button
-                        className="question-submit"
-                        onClick={handleSubmit}
-                        disabled={!input.trim()}
-                    >
-                        →
-                    </button>
+                    <div className="input-actions">
+                        <button
+                            className={`voice-btn${isRecording ? ' recording' : ''}${isTranscribing ? ' transcribing' : ''}`}
+                            onClick={toggleRecording}
+                            disabled={isTranscribing}
+                            title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing...' : 'Voice input'}
+                        >
+                            {isTranscribing ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                            ) : isRecording ? (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+                            ) : (
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                            )}
+                        </button>
+                        <button
+                            className={`question-submit${input.trim() ? ' has-input' : ''}`}
+                            onClick={handleSubmit}
+                            disabled={!input.trim()}
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </button>
+                    </div>
                 </div>
             </div>
 
-            {/* Tab bar */}
+            {/* Tab bar — segmented control */}
             <div className="tab-bar">
-                {(['results', 'agents', 'history'] as const).map((tab) => (
-                    <button
-                        key={tab}
-                        className={`tab-btn ${sidebarTab === tab ? 'active' : ''}`}
-                        onClick={() => setSidebarTab(tab)}
-                    >
-                        {tab === 'results' ? '📊 Results' : tab === 'agents' ? '👥 Agents' : '📜 History'}
-                    </button>
-                ))}
+                <div className="tab-bar-inner">
+                    {(['results', 'agents', 'history'] as const).map((tab) => (
+                        <button
+                            key={tab}
+                            className={`tab-btn ${sidebarTab === tab ? 'active' : ''}`}
+                            onClick={() => setSidebarTab(tab)}
+                        >
+                            {tab === 'results' ? 'Results' : tab === 'agents' ? 'Agents' : 'History'}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Tab content */}
@@ -198,6 +209,16 @@ export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps)
 
                 {sidebarTab === 'history' && <HistoryPanel />}
             </div>
+
+            {/* Sidebar footer with sign out */}
+            {onSignOut && (
+                <div className="sidebar-footer">
+                    <button className="sidebar-signout" onClick={onSignOut}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><polyline points="16 17 21 12 16 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        Sign out
+                    </button>
+                </div>
+            )}
 
             {/* Agent detail modal */}
             {selectedAgentId && (
