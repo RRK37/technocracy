@@ -35,16 +35,14 @@ export async function POST(req: NextRequest) {
         });
 
         if (matchError) {
-            console.error('[recall] match error:', matchError);
             return NextResponse.json({ memories: [] });
         }
 
         const memories = (matches || []).map((m: { memory: string }) => m.memory);
-        console.log('[recall] found memories:', memories);
 
         return NextResponse.json({ memories });
     } catch (error: unknown) {
-        console.error('[recall] error:', error);
+        console.error('Memory recall error:', error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 },

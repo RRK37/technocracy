@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
     try {
         // Support both JSON and sendBeacon (plain text / form data)
         const contentType = req.headers.get('content-type') || '';
-        let body: { messages: { role: string; text: string }[]; question: string; accessToken: string };
+        let body: { messages: { role: string; text: string }[]; question: string; accessToken: string; directMemory?: string };
 
         if (contentType.includes('application/json')) {
             body = await req.json();
@@ -17,33 +17,39 @@ export async function POST(req: NextRequest) {
             body = JSON.parse(text);
         }
 
-        const { messages, question, accessToken } = body;
-        console.log('[extract] received request, messages:', messages?.length, 'hasToken:', !!accessToken);
+        const { messages, question, accessToken, directMemory } = body;
 
-        if (!messages?.length || !accessToken) {
-            console.log('[extract] missing messages or token');
-            return NextResponse.json({ error: 'Missing messages or accessToken' }, { status: 400 });
+        if (!accessToken) {
+            return NextResponse.json({ error: 'Missing accessToken' }, { status: 400 });
         }
 
         // Verify user
         const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
-        console.log('[extract] auth result:', user?.id, 'error:', authError?.message);
         if (authError || !user) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        // Format conversation for extraction
-        const conversation = messages
-            .map((m) => `${m.role === 'user' ? 'User' : 'System'}: ${m.text}`)
-            .join('\n');
+        let memories: string[];
 
-        // Extract user facts via GPT-4o-mini
-        const extraction = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
-            messages: [
-                {
-                    role: 'system',
-                    content: `Extract factual information about the USER from this conversation. Only extract facts that the user has directly stated or clearly implied about themselves. Each fact should be a standalone statement about the user.
+        if (directMemory) {
+            // Manually added memory — use as-is
+            memories = [directMemory];
+        } else {
+            // Extract from conversation
+            if (!messages?.length) {
+                return NextResponse.json({ error: 'Missing messages' }, { status: 400 });
+            }
+
+            const conversation = messages
+                .map((m) => `${m.role === 'user' ? 'User' : 'System'}: ${m.text}`)
+                .join('\n');
+
+            const extraction = await openai.chat.completions.create({
+                model: 'gpt-4o-mini',
+                messages: [
+                    {
+                        role: 'system',
+                        content: `Extract factual information about the USER from this conversation. Only extract facts that the user has directly stated or clearly implied about themselves. Each fact should be a standalone statement about the user.
 
 Examples of good extractions:
 - "User is a software engineer"
@@ -58,20 +64,20 @@ Do NOT extract:
 
 Respond with a JSON object: { "memories": ["fact1", "fact2", ...] }
 If no personal facts can be extracted, return { "memories": [] }`,
-                },
-                {
-                    role: 'user',
-                    content: `Question asked: "${question}"\n\nConversation:\n${conversation}`,
-                },
-            ],
-            max_tokens: 500,
-            temperature: 0.3,
-            response_format: { type: 'json_object' },
-        });
+                    },
+                    {
+                        role: 'user',
+                        content: `Question asked: "${question}"\n\nConversation:\n${conversation}`,
+                    },
+                ],
+                max_tokens: 500,
+                temperature: 0.3,
+                response_format: { type: 'json_object' },
+            });
 
-        const extracted = JSON.parse(extraction.choices[0].message.content || '{"memories":[]}');
-        const memories: string[] = extracted.memories || [];
-        console.log('[extract] GPT extracted memories:', memories);
+            const extracted = JSON.parse(extraction.choices[0].message.content || '{"memories":[]}');
+            memories = extracted.memories || [];
+        }
 
         if (memories.length === 0) {
             return NextResponse.json({ stored: 0 });
@@ -90,14 +96,12 @@ If no personal facts can be extracted, return { "memories": [] }`,
             const embedding = embeddingResponse.data[i].embedding;
 
             // Check for similar existing memories (threshold 0.85)
-            const { data: similar, error: rpcError } = await supabaseAdmin.rpc('match_user_memories', {
+            const { data: similar } = await supabaseAdmin.rpc('match_user_memories', {
                 query_embedding: JSON.stringify(embedding),
                 match_user_id: user.id,
                 match_threshold: 0.85,
                 match_count: 1,
             });
-
-            console.log('[extract] dedup check for:', memory, 'similar:', similar?.length, 'rpcError:', rpcError?.message);
 
             if (similar && similar.length > 0) {
                 continue;
@@ -115,16 +119,12 @@ If no personal facts can be extracted, return { "memories": [] }`,
 
             if (!insertError) {
                 stored++;
-                console.log('[extract] stored memory:', memory);
-            } else {
-                console.error('[extract] insert error:', insertError);
             }
         }
 
-        console.log('[extract] done. stored:', stored, '/', memories.length);
         return NextResponse.json({ stored, total: memories.length });
     } catch (error: unknown) {
-        console.error('[extract] error:', error);
+        console.error('Memory extraction error:', error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : 'Unknown error' },
             { status: 500 },

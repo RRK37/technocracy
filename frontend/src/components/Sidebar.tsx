@@ -8,6 +8,7 @@ import AgentDetailModal from './AgentDetailModal';
 import HistoryPanel from './HistoryPanel';
 import { runDeliberation, processFollowUps } from '@/src/lib/orchestrator';
 import type { SimAgent } from '@/src/lib/SimAgent';
+import { useVoiceInput } from '@/src/hooks/useVoiceInput';
 
 interface SidebarProps {
     simAgentsRef: React.MutableRefObject<SimAgent[]>;
@@ -24,6 +25,9 @@ export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps)
 
     const [input, setInput] = useState('');
     const [running, setRunning] = useState(false);
+    const { isRecording, isTranscribing, toggleRecording } = useVoiceInput(
+        useCallback((text: string) => setInput((prev) => (prev ? prev + ' ' + text : text)), []),
+    );
     const hasAsked = question !== '';
     const isBusy = phase !== 'idle' && phase !== 'complete';
 
@@ -138,6 +142,14 @@ export default function Sidebar({ simAgentsRef, extractMemories }: SidebarProps)
                         }}
                         rows={2}
                     />
+                    <button
+                        className={`voice-btn${isRecording ? ' recording' : ''}${isTranscribing ? ' transcribing' : ''}`}
+                        onClick={toggleRecording}
+                        disabled={isTranscribing}
+                        title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing...' : 'Voice input'}
+                    >
+                        {isTranscribing ? '⏳' : '🎙'}
+                    </button>
                     <button
                         className="question-submit"
                         onClick={handleSubmit}

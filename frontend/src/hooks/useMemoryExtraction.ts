@@ -31,25 +31,18 @@ export function useMemoryExtraction() {
     // Called explicitly from "New Question" button — always fires
     const extractMemories = useCallback(
         (messages: { role: string; text: string }[], question: string) => {
-            if (!session?.access_token) {
-                console.warn('[memory] no access token, skipping extract');
-                return;
-            }
+            if (!session?.access_token) return;
 
             const payload = buildPayload(messages, question, session.access_token);
-            if (!payload) {
-                console.warn('[memory] no messages or question, skipping extract');
-                return;
-            }
+            if (!payload) return;
 
             sentViaButton.current = true;
-            console.log('[memory] extracting memories via fetch');
 
             fetch('/api/memories/extract', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: payload,
-            }).catch((err) => console.error('[memory] extraction fetch failed:', err));
+            }).catch(() => {});
         },
         [session],
     );
@@ -64,7 +57,6 @@ export function useMemoryExtraction() {
             const payload = buildPayload(messages, question, session.access_token);
             if (!payload) return;
 
-            console.log('[memory] extracting memories via beacon');
             navigator.sendBeacon('/api/memories/extract', payload);
         };
 
