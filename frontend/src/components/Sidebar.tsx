@@ -163,7 +163,7 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                                     title="New chat"
                                 >
                                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                                        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                                     </svg>
                                 </button>
                             )
@@ -175,11 +175,11 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                             title={isRecording ? 'Stop recording' : isTranscribing ? 'Transcribing...' : 'Voice input'}
                         >
                             {isTranscribing ? (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5"/><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.5" /><path d="M12 6v6l4 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                             ) : isRecording ? (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor"/></svg>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" /></svg>
                             ) : (
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><line x1="12" y1="19" x2="12" y2="23" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
                             )}
                         </button>
                         <button
@@ -187,7 +187,7 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                             onClick={handleSubmit}
                             disabled={!input.trim()}
                         >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         </button>
                     </div>
                 </div>
@@ -208,18 +208,18 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                 </div>
             </div>
 
-            {/* Tab content */}
+            {/* Tab content — all tabs stay mounted, hidden via CSS to avoid remount lag */}
             <div className="tab-content">
-                {sidebarTab === 'results' && (
+                <div className={`tab-pane${sidebarTab === 'results' ? ' active' : ''}`}>
                     <ResultsPanel
                         question={question}
                         clusters={clusteredResults}
                         phase={phase}
                         totalAgents={agents.length}
                     />
-                )}
+                </div>
 
-                {sidebarTab === 'agents' && (
+                <div className={`tab-pane${sidebarTab === 'agents' ? ' active' : ''}`}>
                     <div>
                         {/* Your Agents section */}
                         <div className="agents-section">
@@ -284,16 +284,18 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                             </div>
                         </div>
                     </div>
-                )}
+                </div>
 
-                {sidebarTab === 'history' && <HistoryPanel />}
+                <div className={`tab-pane${sidebarTab === 'history' ? ' active' : ''}`}>
+                    <HistoryPanel />
+                </div>
             </div>
 
             {/* Sidebar footer with sign out */}
             {onSignOut && (
                 <div className="sidebar-footer">
                     <button className="sidebar-signout" onClick={onSignOut}>
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><polyline points="16 17 21 12 16 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><polyline points="16 17 21 12 16 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
                         Sign out
                     </button>
                 </div>

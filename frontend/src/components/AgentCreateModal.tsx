@@ -17,6 +17,10 @@ export default function AgentCreateModal({ onClose, simAgentsRef }: AgentCreateM
     const [name, setName] = useState('');
     const [persona, setPersona] = useState('');
     const [saving, setSaving] = useState(false);
+    const [showLinkedinPopup, setShowLinkedinPopup] = useState(false);
+    const [linkedinUrl, setLinkedinUrl] = useState('');
+    const [importing, setImporting] = useState(false);
+    const [importError, setImportError] = useState('');
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const { addCustomAgent } = useAgentStore();
 
@@ -44,6 +48,31 @@ export default function AgentCreateModal({ onClose, simAgentsRef }: AgentCreateM
         };
         img.src = `/characters/character_${padded}/idle.png`;
     }, [spriteId]);
+
+    const handleImport = useCallback(async () => {
+        if (!linkedinUrl.trim() || importing) return;
+        setImporting(true);
+        setImportError('');
+        try {
+            const res = await fetch('/api/linkedin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ linkedinUrl: linkedinUrl.trim() }),
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setName(data.name || '');
+                setPersona(data.persona || '');
+                setLinkedinUrl('');
+                setShowLinkedinPopup(false);
+            } else {
+                setImportError(data.error || 'Import failed');
+            }
+        } catch {
+            setImportError('Network error — could not reach server');
+        }
+        setImporting(false);
+    }, [linkedinUrl, importing]);
 
     const handleCreate = useCallback(async () => {
         if (!name.trim() || !persona.trim() || saving) return;
@@ -162,16 +191,49 @@ export default function AgentCreateModal({ onClose, simAgentsRef }: AgentCreateM
                     </button>
                 </div>
 
-                {/* Name input */}
+                {/* Name input + LinkedIn trigger */}
                 <div className="modal-section">
                     <h3>Name</h3>
-                    <input
-                        className="create-agent-input"
-                        placeholder="Agent name..."
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        maxLength={50}
-                    />
+                    <div className="name-field-row">
+                        <input
+                            className="create-agent-input"
+                            placeholder="Agent name..."
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            maxLength={50}
+                        />
+                        <button
+                            className="linkedin-trigger-btn"
+                            onClick={() => setShowLinkedinPopup((v) => !v)}
+                            title="Import from LinkedIn"
+                        >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 112.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+                            </svg>
+                        </button>
+                    </div>
+                    {showLinkedinPopup && (
+                        <div className="linkedin-popup">
+                            <div className="linkedin-popup-input-row">
+                                <input
+                                    className="create-agent-input"
+                                    placeholder="linkedin.com/in/username"
+                                    value={linkedinUrl}
+                                    onChange={(e) => { setLinkedinUrl(e.target.value); setImportError(''); }}
+                                    disabled={importing}
+                                />
+                                <button
+                                    className="linkedin-import-btn"
+                                    onClick={handleImport}
+                                    disabled={importing || !linkedinUrl.trim()}
+                                >
+                                    {importing ? '...' : 'Import'}
+                                </button>
+                            </div>
+                            {importError && <p className="linkedin-import-error">{importError}</p>}
+                            {importing && <p className="linkedin-importing-text">Importing profile...</p>}
+                        </div>
+                    )}
                 </div>
 
                 {/* Persona textarea */}

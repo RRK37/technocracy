@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useEffect } from 'react';
+import { useCallback, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/providers/AuthProvider';
 import WorldCanvas from '@/src/components/WorldCanvas';
@@ -13,6 +13,7 @@ export default function HomePage() {
   const router = useRouter();
   const simAgentsRef = useRef<SimAgent[]>([]);
   const { extractMemories } = useMemoryExtraction();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -36,10 +37,26 @@ export default function HomePage() {
   if (!user) return null;
 
   return (
-    <div className="app-layout">
+    <div className={`app-layout${sidebarOpen ? ' sidebar-open' : ''}`}>
       <div className="canvas-area">
         <WorldCanvas onAgentsReady={handleAgentsReady} />
       </div>
+
+      <button
+        className="mobile-sidebar-toggle"
+        onClick={() => setSidebarOpen(o => !o)}
+        aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
+      >
+        {sidebarOpen ? (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="4" y1="4" x2="16" y2="16" /><line x1="16" y1="4" x2="4" y2="16" />
+          </svg>
+        ) : (
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+            <line x1="3" y1="5" x2="17" y2="5" /><line x1="3" y1="10" x2="17" y2="10" /><line x1="3" y1="15" x2="17" y2="15" />
+          </svg>
+        )}
+      </button>
 
       <Sidebar simAgentsRef={simAgentsRef} extractMemories={extractMemories} onSignOut={signOut} />
     </div>
