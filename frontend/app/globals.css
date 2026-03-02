@@ -109,7 +109,7 @@ body {
 }
 
 .sidebar-logo {
-  height: 20px;
+  height: 48px;
   width: auto;
   image-rendering: pixelated;
   opacity: 0.9;
@@ -376,7 +376,6 @@ body {
 .tab-btn.active {
   color: var(--accent);
   background: var(--bg-elevated);
-  box-shadow: inset 0 -2px 0 var(--accent);
 }
 
 .tab-content {

@@ -6,7 +6,7 @@ import ResultsPanel from './ResultsPanel';
 import AgentCard from './AgentCard';
 import AgentDetailModal from './AgentDetailModal';
 import HistoryPanel from './HistoryPanel';
-import { runDeliberation, processFollowUps } from '@/src/lib/orchestrator';
+import { runDeliberation, processFollowUps, saveAndReset } from '@/src/lib/orchestrator';
 import type { SimAgent } from '@/src/lib/SimAgent';
 import { useVoiceInput } from '@/src/hooks/useVoiceInput';
 
@@ -66,14 +66,14 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
         }
     }, [input, simAgentsRef, hasAsked, isBusy, running, addMessage, queueMessage]);
 
-    const handleNewQuestion = useCallback(() => {
+    const handleNewQuestion = useCallback(async () => {
         if (extractMemories) {
             extractMemories(messages, question);
         }
-        resetSession();
+        await saveAndReset(simAgentsRef.current);
         setInput('');
         setRunning(false);
-    }, [resetSession, extractMemories, messages, question]);
+    }, [simAgentsRef, extractMemories, messages, question]);
 
     const phaseLabel: Record<Phase, string> = {
         idle: '',
@@ -94,7 +94,7 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                         <p className="sidebar-subtitle">Collective intelligence engine</p>
                     </div>
                     {hasAsked && (
-                        <button className="new-question-btn" onClick={handleNewQuestion} disabled={running}>
+                        <button className="new-question-btn" onClick={handleNewQuestion}>
                             + New
                         </button>
                     )}

@@ -34,7 +34,7 @@ The "agentIds" array MUST contain the exact agent IDs (from the brackets) of eac
 Keep theme labels concise (2-5 words). Order by count descending. Respond ONLY with valid JSON, no markdown.`;
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4.1-nano',
             messages: [{ role: 'system', content: systemPrompt }],
             max_tokens: 2000,
             temperature: 0.3,

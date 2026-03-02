@@ -35,10 +35,10 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
 
                 if (cancelled) return;
 
-                // Only use characters 1-100
+                // Only use characters that have a name and persona
                 const allKeys = Object.keys(json.characters).filter((key) => {
-                    const num = parseInt(key.replace(/\D/g, ''), 10);
-                    return num >= 1 && num <= 100;
+                    const c = json.characters[key];
+                    return c.name && c.persona;
                 });
                 const shuffled = allKeys.sort(() => Math.random() - 0.5);
                 const selected = shuffled.slice(0, WORLD_CONFIG.NUM_AGENTS);
@@ -153,22 +153,6 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
 
             ctx!.restore();
 
-            // Draw phase indicator
-            const currentPhase = useAgentStore.getState().phase;
-            if (currentPhase !== 'idle' && currentPhase !== 'complete') {
-                ctx!.save();
-                ctx!.fillStyle = 'rgba(80, 80, 80, 0.7)';
-                ctx!.font = '14px Inter, sans-serif';
-                ctx!.textAlign = 'left';
-                const phaseLabels: Record<string, string> = {
-                    thinking: '🧠 Agents are thinking...',
-                    discussing: '💬 Agents are discussing...',
-                    're-thinking': '🧠 Agents are reconsidering...',
-                    clustering: '📊 Analyzing results...',
-                };
-                ctx!.fillText(phaseLabels[currentPhase] || currentPhase, 16, 30);
-                ctx!.restore();
-            }
 
             animFrameRef.current = requestAnimationFrame(gameLoop);
         }
@@ -178,14 +162,30 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
     }, [loaded]);
 
     // Camera controls
+    const clampCamera = useCallback((cam: { x: number; y: number; zoom: number }) => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        const halfW = canvas.width / 2 / cam.zoom;
+        const halfH = canvas.height / 2 / cam.zoom;
+        cam.x = Math.max(halfW, Math.min(WORLD_CONFIG.WIDTH - halfW, cam.x));
+        cam.y = Math.max(halfH, Math.min(WORLD_CONFIG.HEIGHT - halfH, cam.y));
+    }, []);
+
     const handleWheel = useCallback((e: React.WheelEvent) => {
         e.preventDefault();
         const cam = cameraRef.current;
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+        // Compute minimum zoom so viewport doesn't exceed world
+        const minZoomW = canvas.width / WORLD_CONFIG.WIDTH;
+        const minZoomH = canvas.height / WORLD_CONFIG.HEIGHT;
+        const minZoom = Math.max(CAMERA_CONFIG.MIN_ZOOM, minZoomW, minZoomH);
         cam.zoom = Math.max(
-            CAMERA_CONFIG.MIN_ZOOM,
+            minZoom,
             Math.min(CAMERA_CONFIG.MAX_ZOOM, cam.zoom - e.deltaY * CAMERA_CONFIG.ZOOM_SENSITIVITY),
         );
-    }, []);
+        clampCamera(cam);
+    }, [clampCamera]);
 
     const dragStart = useRef({ x: 0, y: 0 });
 
@@ -202,8 +202,9 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
         const dy = e.clientY - lastMouse.current.y;
         cam.x -= dx / cam.zoom;
         cam.y -= dy / cam.zoom;
+        clampCamera(cam);
         lastMouse.current = { x: e.clientX, y: e.clientY };
-    }, []);
+    }, [clampCamera]);
 
     const handleMouseUp = useCallback((e: React.MouseEvent) => {
         isDragging.current = false;

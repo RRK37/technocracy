@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
                 .join('\n');
 
             const extraction = await openai.chat.completions.create({
-                model: 'gpt-4o-mini',
+                model: 'gpt-4.1-nano',
                 messages: [
                     {
                         role: 'system',

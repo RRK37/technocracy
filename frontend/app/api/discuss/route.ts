@@ -33,7 +33,7 @@ Respond with a JSON object:
 Respond ONLY with valid JSON, no markdown.`;
 
         const response = await openai.chat.completions.create({
-            model: 'gpt-4o-mini',
+            model: 'gpt-4.1-nano',
             messages: [{ role: 'system', content: systemPrompt }],
             max_tokens: 200,
             temperature: 1.0,

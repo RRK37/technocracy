@@ -57,13 +57,24 @@ interface AgentStore {
     queueMessage: (msg: string) => void;
     drainPending: () => string[];
 
+    // Session generation (incremented on reset to abort in-flight work)
+    generation: number;
+
     // Session management
     resetSession: () => void;
 }
 
 export const useAgentStore = create<AgentStore>((set) => ({
     agents: [],
-    setAgents: (agents) => set({ agents }),
+    setAgents: (agents) => {
+        const seen = new Set<string>();
+        const unique = agents.filter(a => {
+            if (seen.has(a.id)) return false;
+            seen.add(a.id);
+            return true;
+        });
+        set({ agents: unique });
+    },
     updateAgent: (id, patch) =>
         set((s) => ({
             agents: s.agents.map((a) => (a.id === id ? { ...a, ...patch } : a)),
@@ -106,6 +117,8 @@ export const useAgentStore = create<AgentStore>((set) => ({
         return msgs;
     },
 
+    generation: 0,
+
     resetSession: () =>
         set((s) => ({
             question: '',
@@ -114,6 +127,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
             phase: 'idle',
             clusteredResults: [],
             discussionGroups: [],
+            generation: s.generation + 1,
             agents: s.agents.map((a) => ({ ...a, answer: '', trace: [] })),
         })),
 }));

@@ -65,28 +65,34 @@ export function drawSpeechBubble(
     const bubbleX = x - bubbleW / 2;
     const bubbleY = y - bubbleH - POINTER_SIZE - 6;
 
-    // Shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.12)';
-    ctx.shadowBlur = 10;
-    ctx.shadowOffsetY = 3;
+    // Shadow — soft diffuse
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.10)';
+    ctx.shadowBlur = 16;
+    ctx.shadowOffsetY = 4;
 
-    // Bubble body — light glass
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    // Bubble body — frosted glass (translucent white)
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
     drawRoundedRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, RADIUS);
     ctx.fill();
     ctx.shadowColor = 'transparent';
 
-    // Pointer — small triangle, same fill, no border
+    // Frosted border — subtle white edge
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    ctx.lineWidth = 0.5;
+    drawRoundedRect(ctx, bubbleX, bubbleY, bubbleW, bubbleH, RADIUS);
+    ctx.stroke();
+
+    // Pointer — small triangle, same frosted fill
     ctx.beginPath();
     ctx.moveTo(x, y - 6);
     ctx.lineTo(x - 5, bubbleY + bubbleH);
     ctx.lineTo(x + 5, bubbleY + bubbleH);
     ctx.closePath();
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.45)';
     ctx.fill();
 
-    // Text — dark on light
-    ctx.fillStyle = '#2a2a2a';
+    // Text — dark, slightly muted for glass feel
+    ctx.fillStyle = '#333';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     for (let i = 0; i < lines.length; i++) {

@@ -82,7 +82,6 @@ export default function AgentDetailModal({ agentId, onClose }: AgentDetailModalP
                     <canvas ref={canvasRef} width={80} height={80} className="modal-avatar" />
                     <div>
                         <h2 className="modal-name">{agentName}</h2>
-                        <p className="modal-desc">{agent.data.description}</p>
                     </div>
                 </div>
 

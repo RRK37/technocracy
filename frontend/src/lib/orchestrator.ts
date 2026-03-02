@@ -9,6 +9,13 @@ import type { SimAgent } from './SimAgent';
 import { DISCUSSION_CONFIG } from './world';
 import type { ThemeCluster, DiscussionGroup } from '@/src/types/agent';
 
+// ── Abort helpers ─────────────────────────────────────────────────
+
+/** Returns true if the session has been reset since this generation started */
+function isAborted(gen: number): boolean {
+    return useAgentStore.getState().generation !== gen;
+}
+
 // ── Helpers ────────────────────────────────────────────────────────
 
 /** Always returns a usable display name for an agent */
@@ -162,7 +169,7 @@ async function runThinkCycle(
         .sort(() => Math.random() - 0.5)
         .slice(0, Math.min(8, simAgents.length));
 
-    const BATCH_SIZE = 34;
+    const BATCH_SIZE = 10;
 
     const processAgent = async (agent: SimAgent) => {
         const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
@@ -200,10 +207,199 @@ async function runThinkCycle(
         }
     };
 
-    // Process in batches of 20
+    // Process in batches with inter-batch delay
     for (let i = 0; i < simAgents.length; i += BATCH_SIZE) {
+        if (i > 0) await new Promise(r => setTimeout(r, 1500));
         const batch = simAgents.slice(i, i + BATCH_SIZE);
         await Promise.all(batch.map(processAgent));
+    }
+}
+
+/** Process a single agent's think call */
+async function processAgentThink(
+    agent: SimAgent,
+    question: string,
+    extraContext: string | undefined,
+    thinkingSample: SimAgent[],
+    gen?: number,
+): Promise<void> {
+    const store = useAgentStore.getState();
+    if (gen !== undefined && isAborted(gen)) return;
+    const runtime = store.agents.find((a: { id: string }) => a.id === agent.id);
+    if (!runtime) return;
+
+    try {
+        const traceForCall = extraContext
+            ? [...runtime.trace, extraContext]
+            : runtime.trace;
+
+        const result = await callThink(
+            agentName(agent),
+            agent.data.persona,
+            traceForCall,
+            question,
+        );
+
+        if (gen !== undefined && isAborted(gen)) return;
+
+        const freshRuntime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
+        const currentTrace = freshRuntime?.trace || runtime.trace;
+
+        const traceEntry = extraContext
+            ? `[Follow-up] ${result.reasoning}`
+            : result.reasoning;
+
+        store.updateAgent(agent.id, {
+            trace: [...currentTrace, traceEntry],
+            answer: result.answer,
+        });
+
+        if (thinkingSample.includes(agent)) {
+            agent.showThought(result.answer.slice(0, 80) + (result.answer.length > 80 ? '...' : ''), 6000);
+        }
+    } catch (err) {
+        console.error(`Think failed for ${agent.id}:`, err);
+    }
+}
+
+/** Run a single group's discussion (sequential speakers, save traces) */
+async function runGroupDiscussion(
+    group: DiscussionGroup,
+    simAgents: SimAgent[],
+    question: string,
+    gen?: number,
+): Promise<void> {
+    const store = useAgentStore.getState();
+    const memberAgents = simAgents.filter((a) => group.agentIds.includes(a.id));
+    const participants = memberAgents.map((a) => ({
+        name: agentName(a),
+        persona: a.data.persona,
+    }));
+
+    let conversationSoFar = '';
+    const speakOrder = [...memberAgents].sort(() => Math.random() - 0.5);
+
+    for (const speaker of speakOrder) {
+        if (gen !== undefined && isAborted(gen)) return;
+        const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === speaker.id);
+        if (!runtime) continue;
+
+        try {
+            const result = await callDiscuss(
+                participants,
+                question,
+                conversationSoFar,
+                { name: agentName(speaker), persona: speaker.data.persona, trace: runtime.trace },
+            );
+
+            speaker.showSpeech(
+                `${result.message.slice(0, 100)}${result.message.length > 100 ? '...' : ''}`,
+                4000,
+            );
+
+            const entry = `${agentName(speaker)}: ${result.message}`;
+            group.conversationLog.push(entry);
+            conversationSoFar += entry + '\n\n';
+
+            await new Promise((r) => setTimeout(r, DISCUSSION_CONFIG.SPEECH_DELAY_MS));
+        } catch (err) {
+            console.error(`Discuss failed for ${speaker.id}:`, err);
+        }
+    }
+
+    // Save conversation trace to all members
+    for (const member of memberAgents) {
+        const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === member.id);
+        if (!runtime) continue;
+        store.updateAgent(member.id, {
+            trace: [...runtime.trace, `--- Group Discussion ---\n${conversationSoFar}`],
+        });
+    }
+
+    group.completed = true;
+    useAgentStore.setState((s) => ({ discussionGroups: [...s.discussionGroups] }));
+}
+
+/** Re-think for a single agent after discussion */
+async function processAgentRethink(
+    agent: SimAgent,
+    question: string,
+): Promise<void> {
+    const store = useAgentStore.getState();
+    const runtime = store.agents.find((a: { id: string }) => a.id === agent.id);
+    if (!runtime) return;
+
+    try {
+        const result = await callThink(
+            agentName(agent),
+            agent.data.persona,
+            runtime.trace,
+            question,
+        );
+
+        store.updateAgent(agent.id, {
+            trace: [...runtime.trace, result.reasoning],
+            answer: result.answer,
+        });
+    } catch (err) {
+        console.error(`Re-think failed for ${agent.id}:`, err);
+    }
+}
+
+/** Consumer loop: polls ready pool, forms groups, runs discussions, re-thinks */
+async function runDiscussionConsumer(
+    readyPool: Set<SimAgent>,
+    allSimAgents: SimAgent[],
+    question: string,
+    thinkingDone: { value: boolean },
+    gen?: number,
+): Promise<void> {
+    const store = useAgentStore.getState();
+    let phaseAdvanced = false;
+
+    while (true) {
+        if (gen !== undefined && isAborted(gen)) return;
+        const readyAgents = Array.from(readyPool);
+        const groups = findNearbyGroups(readyAgents);
+
+        if (groups.length > 0) {
+            if (!phaseAdvanced) {
+                store.setPhase('discussing');
+                phaseAdvanced = true;
+            }
+
+            // Remove grouped agents from pool
+            for (const g of groups) {
+                for (const id of g.agentIds) {
+                    const agent = readyAgents.find(a => a.id === id);
+                    if (agent) readyPool.delete(agent);
+                }
+            }
+
+            // Run all found groups in parallel (staggered)
+            const groupPromises = groups.map(async (group, index) => {
+                await new Promise(r => setTimeout(r, index * 2000));
+                useAgentStore.setState(s => ({
+                    discussionGroups: [...s.discussionGroups, group]
+                }));
+                arrangeInCircle(allSimAgents, group);
+                await new Promise(r => setTimeout(r, 3000));
+                await runGroupDiscussion(group, allSimAgents, question, gen);
+
+                // Re-think for agents in this group
+                const memberAgents = allSimAgents.filter(a => group.agentIds.includes(a.id));
+                await Promise.all(memberAgents.map(agent => processAgentRethink(agent, question)));
+                for (const agent of memberAgents) agent.resetToWandering();
+            });
+
+            await Promise.all(groupPromises);
+        }
+
+        // Exit: thinking done AND either pool is empty or no more groups can form
+        if (thinkingDone.value && (readyPool.size === 0 || groups.length === 0)) break;
+
+        // Poll interval
+        await new Promise(r => setTimeout(r, 1500));
     }
 }
 
@@ -213,8 +409,10 @@ async function finalCluster(
     question: string,
     clusterInterval: ReturnType<typeof setInterval>,
     saveHistory: boolean,
+    gen?: number,
 ): Promise<void> {
     clearInterval(clusterInterval);
+    if (gen !== undefined && isAborted(gen)) return;
     const store = useAgentStore.getState();
     store.setPhase('clustering');
 
@@ -261,9 +459,47 @@ async function finalCluster(
     }
 }
 
-/** Start background clustering interval (every 5s) */
-function startBackgroundClustering(question: string): ReturnType<typeof setInterval> {
+/** Save current results to history and reset session */
+export async function saveAndReset(simAgents: SimAgent[]): Promise<void> {
+    const store = useAgentStore.getState();
+    const question = store.question;
+    const clusteredResults = store.clusteredResults;
+
+    // Save to history if there are results
+    if (question && clusteredResults.length > 0) {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (user) {
+                const { data, error } = await supabase
+                    .from('question_history')
+                    .insert({
+                        user_id: user.id,
+                        question,
+                        clustered_results: {
+                            themes: clusteredResults,
+                            total_agents: simAgents.length,
+                        },
+                    })
+                    .select()
+                    .single();
+
+                if (data && !error) {
+                    store.addHistory(data);
+                }
+            }
+        } catch (err) {
+            console.error('History save on reset failed:', err);
+        }
+    }
+
+    // Reset aborts all in-flight work via generation increment
+    store.resetSession();
+}
+
+/** Start background clustering interval (every 4s) */
+function startBackgroundClustering(question: string, gen?: number): ReturnType<typeof setInterval> {
     return setInterval(async () => {
+        if (gen !== undefined && isAborted(gen)) return;
         const currentAgents = useAgentStore.getState().agents;
         const currentAnswers = currentAgents
             .filter((a: { answer: string }) => a.answer)
@@ -276,7 +512,7 @@ function startBackgroundClustering(question: string): ReturnType<typeof setInter
                 useAgentStore.getState().setClusteredResults(themes);
             }
         } catch (_) { /* ignore interim failures */ }
-    }, 5000);
+    }, 4000);
 }
 
 // ── Main orchestration ─────────────────────────────────────────────
@@ -286,6 +522,7 @@ export async function runDeliberation(
     question: string,
 ): Promise<void> {
     const store = useAgentStore.getState();
+    const gen = store.generation;
     store.setQuestion(question);
     store.setPhase('thinking');
     store.setClusteredResults([]);
@@ -311,145 +548,57 @@ export async function runDeliberation(
         console.error('Memory recall failed:', err);
     }
 
-    const clusterInterval = startBackgroundClustering(question);
+    const clusterInterval = startBackgroundClustering(question, gen);
 
-    // ── Phase 1: Initial Think ──
-    await runThinkCycle(simAgents, question, memoryContext);
-
-    // ── Check queue after Phase 1 ──
-    if (hasPending()) {
-        const followUp = consumePending();
-        store.setPhase('thinking');
-        await runThinkCycle(simAgents, question, `--- User follow-up ---\n${followUp}`);
-        // Skip discussion, go directly to final cluster
-        await finalCluster(simAgents, question, clusterInterval, true);
-        // Check if more messages arrived during clustering
-        if (hasPending()) {
-            await processFollowUps(simAgents, question);
-        }
-        return;
-    }
-
-    // ── Phase 2: Form Discussion Groups ──
-    store.setPhase('discussing');
-
-    const groups = findNearbyGroups(simAgents);
+    // ── Phase 1+2: Concurrent think (producer) + discuss (consumer) ──
+    const readyPool = new Set<SimAgent>();
+    const thinkingDone = { value: false };
+    store.setPhase('thinking');
     store.setDiscussionGroups([]);
 
-    // Process each group in parallel, but staggered by 2 seconds
-    const groupPromises = groups.map(async (group, index) => {
-        // Stagger starts
-        await new Promise((r) => setTimeout(r, index * 2000));
+    const thinkingSample = [...simAgents]
+        .sort(() => Math.random() - 0.5)
+        .slice(0, Math.min(8, simAgents.length));
 
-        // Add this group to the active canvas
-        useAgentStore.setState((s) => ({ discussionGroups: [...s.discussionGroups, group] }));
-
-        // Agents walk to circle
-        arrangeInCircle(simAgents, group);
-        await new Promise((r) => setTimeout(r, 3000));
-
-        // ── Phase 2b: Sequential discussion within this group ──
-        const memberAgents = simAgents.filter((a) => group.agentIds.includes(a.id));
-        const participants = memberAgents.map((a) => ({
-            name: agentName(a),
-            persona: a.data.persona,
-        }));
-
-        let conversationSoFar = '';
-        const speakOrder = [...memberAgents].sort(() => Math.random() - 0.5);
-
-        for (const speaker of speakOrder) {
-            const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === speaker.id);
-            if (!runtime) continue;
-
-            try {
-                const result = await callDiscuss(
-                    participants,
-                    question,
-                    conversationSoFar,
-                    { name: agentName(speaker), persona: speaker.data.persona, trace: runtime.trace },
-                );
-
-                speaker.showSpeech(
-                    `${result.message.slice(0, 100)}${result.message.length > 100 ? '...' : ''}`,
-                    4000,
-                );
-
-                const entry = `${agentName(speaker)}: ${result.message}`;
-                group.conversationLog.push(entry);
-                conversationSoFar += entry + '\n\n';
-
-                await new Promise((r) => setTimeout(r, DISCUSSION_CONFIG.SPEECH_DELAY_MS));
-            } catch (err) {
-                console.error(`Discuss failed for ${speaker.id}:`, err);
-            }
+    // Producer: fire think calls in batches, add to readyPool on completion
+    const BATCH_SIZE = 10;
+    const thinkProducer = (async () => {
+        for (let i = 0; i < simAgents.length; i += BATCH_SIZE) {
+            if (isAborted(gen)) return;
+            if (i > 0) await new Promise(r => setTimeout(r, 1500));
+            const batch = simAgents.slice(i, i + BATCH_SIZE);
+            await Promise.all(batch.map(async (agent) => {
+                await processAgentThink(agent, question, memoryContext, thinkingSample, gen);
+                if (!isAborted(gen)) readyPool.add(agent);
+            }));
         }
+        thinkingDone.value = true;
+    })();
 
-        // Save conversation trace to all members
-        for (const member of memberAgents) {
-            const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === member.id);
-            if (!runtime) continue;
-            store.updateAgent(member.id, {
-                trace: [...runtime.trace, `--- Group Discussion ---\n${conversationSoFar}`],
-            });
-        }
+    // Consumer: poll ready pool, form groups, discuss, re-think
+    const discussConsumer = runDiscussionConsumer(
+        readyPool, simAgents, question, thinkingDone, gen
+    );
 
-        group.completed = true;
-        // Trigger a re-render of groups by mutating state slightly or cloning array
-        useAgentStore.setState((s) => ({ discussionGroups: [...s.discussionGroups] }));
-    });
+    // Wait for both to finish
+    await Promise.all([thinkProducer, discussConsumer]);
+    if (isAborted(gen)) { clearInterval(clusterInterval); return; }
 
-    await Promise.all(groupPromises);
-
-    // ── Check queue after Phase 2 ──
+    // ── Check queue before final cluster ──
     if (hasPending()) {
         const followUp = consumePending();
-        for (const agent of simAgents) agent.resetToWandering();
         store.setPhase('thinking');
         await runThinkCycle(simAgents, question, `--- User follow-up ---\n${followUp}`);
-        await finalCluster(simAgents, question, clusterInterval, true);
-        if (hasPending()) await processFollowUps(simAgents, question);
+        await finalCluster(simAgents, question, clusterInterval, true, gen);
+        if (!isAborted(gen) && hasPending()) await processFollowUps(simAgents, question);
         return;
     }
 
-    // ── Phase 3: Re-think ──
-    store.setPhase('re-thinking');
-
-    for (const agent of simAgents) {
-        agent.resetToWandering();
-    }
-
-    const discussedAgentIds = new Set(groups.flatMap((g) => g.agentIds));
-    const discussedAgents = simAgents.filter((a) => discussedAgentIds.has(a.id));
-
-    const rethinkPromises = discussedAgents.map(async (agent) => {
-        const runtime = useAgentStore.getState().agents.find((a: { id: string }) => a.id === agent.id);
-        if (!runtime) return;
-
-        try {
-            const result = await callThink(
-                agentName(agent),
-                agent.data.persona,
-                runtime.trace,
-                question,
-            );
-
-            store.updateAgent(agent.id, {
-                trace: [...runtime.trace, result.reasoning],
-                answer: result.answer,
-            });
-        } catch (err) {
-            console.error(`Re-think failed for ${agent.id}:`, err);
-        }
-    });
-
-    await Promise.all(rethinkPromises);
-
-    // ── Phase 4: Final cluster + save ──
-    await finalCluster(simAgents, question, clusterInterval, true);
+    // ── Phase 3: Final cluster + save ──
+    await finalCluster(simAgents, question, clusterInterval, true, gen);
 
     // ── Check queue after completion ──
-    if (hasPending()) {
+    if (!isAborted(gen) && hasPending()) {
         await processFollowUps(simAgents, question);
     }
 }
@@ -464,34 +613,54 @@ export async function processFollowUps(
     question?: string,
 ): Promise<void> {
     const store = useAgentStore.getState();
+    const gen = store.generation;
     const q = question || store.question;
 
     while (hasPending()) {
-        const followUp = consumePending();
-        store.setPhase('thinking');
+        if (isAborted(gen)) return;
+        consumePending();
 
         // Build conversation context
         const allMessages = useAgentStore.getState().messages;
         const conversationContext = allMessages
             .map((m) => `${m.role === 'user' ? 'User' : 'System'}: ${m.text}`)
             .join('\n');
+        const extraContext = `--- Conversation ---\n${conversationContext}`;
 
-        await runThinkCycle(simAgents, q, `--- Conversation ---\n${conversationContext}`);
+        const clusterInterval = startBackgroundClustering(q, gen);
 
-        // Quick cluster
-        store.setPhase('clustering');
-        const latestAgents = useAgentStore.getState().agents;
-        const answers = latestAgents
-            .filter((a: { answer: string }) => a.answer)
-            .map((a: { id: string; answer: string }) => ({ agentId: a.id, answer: a.answer }));
+        // ── Think + Discuss (mirrors initial deliberation) ──
+        const readyPool = new Set<SimAgent>();
+        const thinkingDone = { value: false };
+        store.setPhase('thinking');
+        store.setDiscussionGroups([]);
 
-        try {
-            const { themes } = await callCluster(answers, q);
-            store.setClusteredResults(themes);
-        } catch (err) {
-            console.error('Re-clustering failed:', err);
-        }
+        const thinkingSample = [...simAgents]
+            .sort(() => Math.random() - 0.5)
+            .slice(0, Math.min(8, simAgents.length));
 
-        store.setPhase('complete');
+        const BATCH_SIZE = 10;
+        const thinkProducer = (async () => {
+            for (let i = 0; i < simAgents.length; i += BATCH_SIZE) {
+                if (isAborted(gen)) return;
+                if (i > 0) await new Promise(r => setTimeout(r, 1500));
+                const batch = simAgents.slice(i, i + BATCH_SIZE);
+                await Promise.all(batch.map(async (agent) => {
+                    await processAgentThink(agent, q, extraContext, thinkingSample, gen);
+                    if (!isAborted(gen)) readyPool.add(agent);
+                }));
+            }
+            thinkingDone.value = true;
+        })();
+
+        const discussConsumer = runDiscussionConsumer(
+            readyPool, simAgents, q, thinkingDone, gen
+        );
+
+        await Promise.all([thinkProducer, discussConsumer]);
+        if (isAborted(gen)) { clearInterval(clusterInterval); return; }
+
+        // ── Final cluster ──
+        await finalCluster(simAgents, q, clusterInterval, false, gen);
     }
 }
