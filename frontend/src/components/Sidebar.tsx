@@ -1,14 +1,16 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { useAgentStore, type Phase } from '@/src/store/agentStore';
+import { useAgentStore } from '@/src/store/agentStore';
 import ResultsPanel from './ResultsPanel';
 import AgentCard from './AgentCard';
 import AgentDetailModal from './AgentDetailModal';
+import AgentCreateModal from './AgentCreateModal';
 import HistoryPanel from './HistoryPanel';
 import { runDeliberation, processFollowUps, saveAndReset } from '@/src/lib/orchestrator';
 import type { SimAgent } from '@/src/lib/SimAgent';
 import { useVoiceInput } from '@/src/hooks/useVoiceInput';
+import { supabase } from '@/src/lib/supabase';
 
 interface SidebarProps {
     simAgentsRef: React.MutableRefObject<SimAgent[]>;
@@ -22,10 +24,13 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
         sidebarTab, setSidebarTab,
         selectedAgentId, setSelectedAgentId,
         addMessage, queueMessage, resetSession,
+        customAgents, removeCustomAgent,
     } = useAgentStore();
 
     const [input, setInput] = useState('');
     const [running, setRunning] = useState(false);
+    const [showCreateModal, setShowCreateModal] = useState(false);
+    const [confirmingNew, setConfirmingNew] = useState(false);
     const { isRecording, isTranscribing, toggleRecording } = useVoiceInput(
         useCallback((text: string) => setInput((prev) => (prev ? prev + ' ' + text : text)), []),
     );
@@ -75,14 +80,23 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
         setRunning(false);
     }, [simAgentsRef, extractMemories, messages, question]);
 
-    const phaseLabel: Record<Phase, string> = {
-        idle: '',
-        thinking: 'Thinking...',
-        discussing: 'Discussing...',
-        're-thinking': 'Reconsidering...',
-        clustering: 'Analyzing...',
-        complete: 'Complete',
-    };
+    const handleDeleteCustomAgent = useCallback(async (agentId: string) => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+            const res = await fetch(`/api/agents/custom?id=${agentId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${session.access_token}` },
+            });
+            if (res.ok) {
+                removeCustomAgent(agentId);
+            }
+        } catch (err) {
+            console.error('Failed to delete agent:', err);
+        }
+    }, [removeCustomAgent]);
+
+    const customAgentIds = new Set(customAgents.map((ca) => `custom_${ca.id}`));
 
     return (
         <div className="sidebar">
@@ -93,11 +107,6 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                         <img src="/logo-black.png" alt="Technocracy" className="sidebar-logo" />
                         <p className="sidebar-subtitle">Collective intelligence engine</p>
                     </div>
-                    {hasAsked && (
-                        <button className="new-question-btn" onClick={handleNewQuestion}>
-                            + New
-                        </button>
-                    )}
                 </div>
             </div>
 
@@ -112,13 +121,6 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                                 <span className="thread-text">{msg.text}</span>
                             </div>
                         ))}
-                    </div>
-                )}
-
-                {/* Phase indicator */}
-                {phase !== 'idle' && phase !== 'complete' && (
-                    <div className="phase-indicator">
-                        {phaseLabel[phase]}
                     </div>
                 )}
 
@@ -144,6 +146,28 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                         rows={2}
                     />
                     <div className="input-actions">
+                        {hasAsked && (
+                            confirmingNew ? (
+                                <button
+                                    className="new-chat-btn confirming"
+                                    onClick={() => { setConfirmingNew(false); handleNewQuestion(); }}
+                                    onBlur={() => setConfirmingNew(false)}
+                                    title="Start a new chat"
+                                >
+                                    New chat?
+                                </button>
+                            ) : (
+                                <button
+                                    className="new-chat-btn"
+                                    onClick={() => setConfirmingNew(true)}
+                                    title="New chat"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                                        <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                                    </svg>
+                                </button>
+                            )
+                        )}
                         <button
                             className={`voice-btn${isRecording ? ' recording' : ''}${isTranscribing ? ' transcribing' : ''}`}
                             onClick={toggleRecording}
@@ -197,13 +221,49 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
 
                 {sidebarTab === 'agents' && (
                     <div className="agents-grid">
-                        {agents.map((agent) => (
-                            <AgentCard
-                                key={agent.id}
-                                agent={agent}
-                                onClick={() => setSelectedAgentId(agent.id)}
-                            />
-                        ))}
+                        {/* Add agent button */}
+                        <button className="add-agent-btn" onClick={() => setShowCreateModal(true)}>
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                            Create Agent
+                        </button>
+
+                        {/* Custom agents first */}
+                        {agents
+                            .filter((a) => customAgentIds.has(a.id))
+                            .map((agent) => (
+                                <div key={agent.id} className="custom-agent-wrapper">
+                                    <span className="custom-agent-badge">custom</span>
+                                    <AgentCard
+                                        agent={agent}
+                                        onClick={() => setSelectedAgentId(agent.id)}
+                                    />
+                                    <button
+                                        className="custom-agent-delete"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDeleteCustomAgent(agent.id.replace('custom_', ''));
+                                        }}
+                                        title="Delete custom agent"
+                                    >
+                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                            <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            ))}
+
+                        {/* Default agents */}
+                        {agents
+                            .filter((a) => !customAgentIds.has(a.id))
+                            .map((agent) => (
+                                <AgentCard
+                                    key={agent.id}
+                                    agent={agent}
+                                    onClick={() => setSelectedAgentId(agent.id)}
+                                />
+                            ))}
                     </div>
                 )}
 
@@ -218,6 +278,11 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                         Sign out
                     </button>
                 </div>
+            )}
+
+            {/* Agent create modal */}
+            {showCreateModal && (
+                <AgentCreateModal onClose={() => setShowCreateModal(false)} />
             )}
 
             {/* Agent detail modal */}

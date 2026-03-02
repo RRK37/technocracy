@@ -71,8 +71,8 @@ export class SimAgent {
     idleImage: HTMLImageElement | null = null;
     idleLoaded: boolean = false;
 
-    constructor(data: CharacterData, x: number, y: number) {
-        this.id = `character_${String(data.id).padStart(4, '0')}`;
+    constructor(data: CharacterData, x: number, y: number, customId?: string) {
+        this.id = customId || `character_${String(data.id).padStart(4, '0')}`;
         this.data = data;
         this.x = x;
         this.y = y;

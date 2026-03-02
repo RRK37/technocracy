@@ -5,7 +5,8 @@ import { SimAgent } from '@/src/lib/SimAgent';
 import { useAgentStore } from '@/src/store/agentStore';
 import { WORLD_CONFIG, AGENT_CONFIG, CAMERA_CONFIG, DISCUSSION_CONFIG } from '@/src/lib/world';
 import { drawGrid, drawDiscussionCircle } from '@/src/lib/canvas-utils';
-import type { CharacterData, CharactersJSON, AgentRuntime } from '@/src/types/agent';
+import type { CharacterData, CharactersJSON, AgentRuntime, CustomAgent } from '@/src/types/agent';
+import { supabase } from '@/src/lib/supabase';
 
 interface WorldCanvasProps {
     onAgentsReady: (agents: SimAgent[]) => void;
@@ -35,18 +36,36 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
 
                 if (cancelled) return;
 
+                // Load custom agents from Supabase
+                let customAgents: CustomAgent[] = [];
+                try {
+                    const { data: { session } } = await supabase.auth.getSession();
+                    if (session) {
+                        const caRes = await fetch('/api/agents/custom', {
+                            headers: { 'Authorization': `Bearer ${session.access_token}` },
+                        });
+                        if (caRes.ok) {
+                            customAgents = await caRes.json();
+                            useAgentStore.getState().setCustomAgents(customAgents);
+                        }
+                    }
+                } catch {
+                    // Continue without custom agents
+                }
+
                 // Only use characters that have a name and persona
                 const allKeys = Object.keys(json.characters).filter((key) => {
                     const c = json.characters[key];
                     return c.name && c.persona;
                 });
                 const shuffled = allKeys.sort(() => Math.random() - 0.5);
-                const selected = shuffled.slice(0, WORLD_CONFIG.NUM_AGENTS);
+                // Reserve slots for custom agents
+                const numDefaults = Math.max(0, WORLD_CONFIG.NUM_AGENTS - customAgents.length);
+                const selected = shuffled.slice(0, numDefaults);
 
-                // Fix sprite URLs to point to symlinked public path
+                // Build default agents
                 const agents: SimAgent[] = selected.map((key) => {
                     const charData = json.characters[key];
-                    // Rewrite URLs to use the public path
                     const fixedData: CharacterData = {
                         ...charData,
                         sprites: {
@@ -60,6 +79,35 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
                     const y = Math.random() * (WORLD_CONFIG.HEIGHT - 100) + 50;
                     return new SimAgent(fixedData, x, y);
                 });
+
+                // Build custom agents as SimAgents
+                for (const ca of customAgents) {
+                    const padded = String(ca.sprite_id).padStart(4, '0');
+                    const spriteKey = `character_${padded}`;
+                    // Borrow sprite structure from the character data if available, or build minimal
+                    const baseChar = json.characters[spriteKey];
+                    const customData: CharacterData = {
+                        id: ca.sprite_id,
+                        gender: baseChar?.gender || 'male',
+                        description: ca.persona,
+                        name: ca.name,
+                        persona: ca.persona,
+                        attributes: baseChar?.attributes || {
+                            skin_color: '', hair_color: '', hair_style: '',
+                            shirt_color: '', leg_color: '', leg_type: 'pants', shoe_color: '',
+                        },
+                        sprites: {
+                            idle: { url: `/characters/${spriteKey}/idle.png`, generated: '', layers: [] },
+                            walk: { url: `/characters/${spriteKey}/walk.png`, generated: '', layers: [] },
+                            sit: { url: `/characters/${spriteKey}/sit.png`, generated: '', layers: [] },
+                        },
+                    };
+
+                    const x = Math.random() * (WORLD_CONFIG.WIDTH - 100) + 50;
+                    const y = Math.random() * (WORLD_CONFIG.HEIGHT - 100) + 50;
+                    const simAgent = new SimAgent(customData, x, y, `custom_${ca.id}`);
+                    agents.push(simAgent);
+                }
 
                 simAgentsRef.current = agents;
 

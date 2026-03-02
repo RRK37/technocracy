@@ -31,8 +31,7 @@ export default function AgentCard({ agent, onClick }: AgentCardProps) {
             ctx.drawImage(img, sx, sy, frameW, frameH, 0, 0, canvas.width, canvas.height);
         };
 
-        const charId = agent.id; // e.g. "character_0001"
-        img.src = `/characters/${charId}/idle.png`;
+        img.src = agent.data.sprites.idle.url;
     }, [agent.id]);
 
     return (

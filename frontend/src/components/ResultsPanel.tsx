@@ -12,6 +12,59 @@ interface ResultsPanelProps {
     totalAgents: number;
 }
 
+function ProgressBar({ phase, totalAgents }: { phase: Phase; totalAgents: number }) {
+    const agents = useAgentStore((s) => s.agents);
+    const discussionGroups = useAgentStore((s) => s.discussionGroups);
+
+    if (phase === 'idle' || totalAgents === 0) return null;
+
+    // Agents in active (not completed) discussion groups
+    const discussingIds = new Set<string>();
+    for (const g of discussionGroups) {
+        if (!g.completed) {
+            for (const id of g.agentIds) discussingIds.add(id);
+        }
+    }
+
+    // Agents with an answer and not in active discussion are "vibing" (done)
+    const vibingCount = agents.filter((a) => a.answer && !discussingIds.has(a.id)).length;
+    const discussingCount = discussingIds.size;
+    const thinkingCount = totalAgents - vibingCount - discussingCount;
+
+    const thinkingPct = Math.round((thinkingCount / totalAgents) * 100);
+    const discussingPct = Math.round((discussingCount / totalAgents) * 100);
+    const vibingPct = 100 - thinkingPct - discussingPct;
+
+    const isComplete = phase === 'complete';
+
+    return (
+        <div className="progress-tracker">
+            <div className="progress-bar-bg">
+                {thinkingPct > 0 && (
+                    <div className="progress-bar-thinking" style={{ width: `${thinkingPct}%` }} />
+                )}
+                {discussingPct > 0 && (
+                    <div className="progress-bar-discussing" style={{ width: `${discussingPct}%` }} />
+                )}
+                {vibingPct > 0 && (
+                    <div className="progress-bar-vibing" style={{ width: `${vibingPct}%` }} />
+                )}
+            </div>
+            <div className="progress-labels">
+                {isComplete ? (
+                    <span className="progress-label vibing">{totalAgents} agents — vibing</span>
+                ) : (
+                    <>
+                        {thinkingCount > 0 && <span className="progress-label thinking">{thinkingCount} thinking</span>}
+                        {discussingCount > 0 && <span className="progress-label discussing">{discussingCount} discussing</span>}
+                        {vibingCount > 0 && <span className="progress-label vibing">{vibingCount} vibing</span>}
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
 export default function ResultsPanel({ question, clusters, phase, totalAgents }: ResultsPanelProps) {
     const [expandedCluster, setExpandedCluster] = useState<number | null>(null);
     const agents = useAgentStore((s) => s.agents);
@@ -28,22 +81,20 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
         );
     }
 
-    if (phase !== 'complete' && clusters.length === 0) {
-        return (
-            <div className="results-loading">
-                <div className="results-spinner" />
-                <p>Agents are deliberating...</p>
-            </div>
-        );
-    }
+    const isWorking = phase !== 'idle' && phase !== 'complete';
 
     const totalVotes = clusters.reduce((s, c) => s + c.count, 0) || totalAgents;
 
     return (
         <div className="results-panel">
-            <div className="results-summary">
-                <span className="results-total">{totalAgents}</span> agents deliberating
-            </div>
+            <ProgressBar phase={phase} totalAgents={totalAgents} />
+
+            {isWorking && clusters.length === 0 && (
+                <div className="results-loading" style={{ height: 'auto', padding: '20px 0' }}>
+                    <div className="results-spinner" />
+                    <p>Waiting for first results...</p>
+                </div>
+            )}
 
             <div className="results-clusters">
                 {clusters.map((cluster, i) => {

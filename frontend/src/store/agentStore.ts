@@ -3,7 +3,7 @@
  */
 
 import { create } from 'zustand';
-import type { AgentRuntime, ThemeCluster, DiscussionGroup, QuestionHistory } from '@/src/types/agent';
+import type { AgentRuntime, ThemeCluster, DiscussionGroup, QuestionHistory, CustomAgent } from '@/src/types/agent';
 
 export type Phase = 'idle' | 'thinking' | 'discussing' | 're-thinking' | 'clustering' | 'complete';
 
@@ -43,6 +43,12 @@ interface AgentStore {
     history: QuestionHistory[];
     setHistory: (h: QuestionHistory[]) => void;
     addHistory: (h: QuestionHistory) => void;
+
+    // Custom agents
+    customAgents: CustomAgent[];
+    setCustomAgents: (agents: CustomAgent[]) => void;
+    addCustomAgent: (agent: CustomAgent) => void;
+    removeCustomAgent: (id: string) => void;
 
     // Selected agent (for detail modal)
     selectedAgentId: string | null;
@@ -99,6 +105,11 @@ export const useAgentStore = create<AgentStore>((set) => ({
     history: [],
     setHistory: (history) => set({ history }),
     addHistory: (h) => set((s) => ({ history: [h, ...s.history] })),
+
+    customAgents: [],
+    setCustomAgents: (customAgents) => set({ customAgents }),
+    addCustomAgent: (agent) => set((s) => ({ customAgents: [...s.customAgents, agent] })),
+    removeCustomAgent: (id) => set((s) => ({ customAgents: s.customAgents.filter((a) => a.id !== id) })),
 
     selectedAgentId: null,
     setSelectedAgentId: (selectedAgentId) => set({ selectedAgentId }),

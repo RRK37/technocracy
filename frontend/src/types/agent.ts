@@ -107,6 +107,16 @@ export interface UserMemory {
     created_at: string;
 }
 
+/** Custom agent stored in Supabase */
+export interface CustomAgent {
+    id: string;
+    user_id: string;
+    sprite_id: number;
+    name: string;
+    persona: string;
+    created_at: string;
+}
+
 /** Discussion group */
 export interface DiscussionGroup {
     agentIds: string[];

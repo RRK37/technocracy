@@ -33,7 +33,8 @@ export default function AgentDetailModal({ agentId, onClose }: AgentDetailModalP
             ctx.imageSmoothingEnabled = false;
             ctx.drawImage(img, 0, 2 * frameH, frameW, frameH, 0, 0, canvas.width, canvas.height);
         };
-        img.src = `/characters/${agentId}/idle.png`;
+        // Custom agents use the sprite URL from their data, default agents use their ID
+        img.src = agent.data.sprites.idle.url;
     }, [agentId, agent]);
 
     const handleChat = useCallback(async () => {
