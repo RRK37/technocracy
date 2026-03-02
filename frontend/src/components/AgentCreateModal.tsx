@@ -3,12 +3,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useAgentStore } from '@/src/store/agentStore';
 import { supabase } from '@/src/lib/supabase';
+import { SimAgent } from '@/src/lib/SimAgent';
+import { WORLD_CONFIG } from '@/src/lib/world';
+import type { CharacterData, AgentRuntime } from '@/src/types/agent';
 
 interface AgentCreateModalProps {
     onClose: () => void;
+    simAgentsRef: React.MutableRefObject<SimAgent[]>;
 }
 
-export default function AgentCreateModal({ onClose }: AgentCreateModalProps) {
+export default function AgentCreateModal({ onClose, simAgentsRef }: AgentCreateModalProps) {
     const [spriteId, setSpriteId] = useState(1);
     const [name, setName] = useState('');
     const [persona, setPersona] = useState('');
@@ -65,6 +69,43 @@ export default function AgentCreateModal({ onClose }: AgentCreateModalProps) {
             if (res.ok) {
                 const agent = await res.json();
                 addCustomAgent(agent);
+
+                // Create SimAgent and AgentRuntime so it appears immediately
+                const padded = String(agent.sprite_id).padStart(4, '0');
+                const spriteKey = `character_${padded}`;
+                const customData: CharacterData = {
+                    id: agent.sprite_id,
+                    gender: 'male',
+                    description: agent.persona,
+                    name: agent.name,
+                    persona: agent.persona,
+                    attributes: {
+                        skin_color: '', hair_color: '', hair_style: '',
+                        shirt_color: '', leg_color: '', leg_type: 'pants', shoe_color: '',
+                    },
+                    sprites: {
+                        idle: { url: `/characters/${spriteKey}/idle.png`, generated: '', layers: [] },
+                        walk: { url: `/characters/${spriteKey}/walk.png`, generated: '', layers: [] },
+                        sit: { url: `/characters/${spriteKey}/sit.png`, generated: '', layers: [] },
+                    },
+                };
+
+                const x = Math.random() * (WORLD_CONFIG.WIDTH - 100) + 50;
+                const y = Math.random() * (WORLD_CONFIG.HEIGHT - 100) + 50;
+                const simAgent = new SimAgent(customData, x, y, `custom_${agent.id}`);
+                simAgentsRef.current.push(simAgent);
+
+                const runtime: AgentRuntime = {
+                    id: simAgent.id,
+                    data: customData,
+                    trace: [],
+                    answer: '',
+                    thoughtBubble: '',
+                    conversationBubble: '',
+                };
+                const store = useAgentStore.getState();
+                store.setAgents([...store.agents, runtime]);
+
                 onClose();
             }
         } catch (err) {

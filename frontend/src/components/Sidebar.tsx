@@ -220,50 +220,69 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                 )}
 
                 {sidebarTab === 'agents' && (
-                    <div className="agents-grid">
-                        {/* Add agent button */}
-                        <button className="add-agent-btn" onClick={() => setShowCreateModal(true)}>
-                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
-                            Create Agent
-                        </button>
-
-                        {/* Custom agents first */}
-                        {agents
-                            .filter((a) => customAgentIds.has(a.id))
-                            .map((agent) => (
-                                <div key={agent.id} className="custom-agent-wrapper">
-                                    <span className="custom-agent-badge">custom</span>
-                                    <AgentCard
-                                        agent={agent}
-                                        onClick={() => setSelectedAgentId(agent.id)}
-                                    />
-                                    <button
-                                        className="custom-agent-delete"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDeleteCustomAgent(agent.id.replace('custom_', ''));
-                                        }}
-                                        title="Delete custom agent"
-                                    >
-                                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                                            <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <div>
+                        {/* Your Agents section */}
+                        <div className="agents-section">
+                            <div className="agents-section-header">
+                                <span className="agents-section-title">Your Agents</span>
+                                <button className="add-agent-btn-sm" onClick={() => setShowCreateModal(true)} title="Create agent">
+                                    <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
+                                        <path d="M6 2V10M2 6H10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                    </svg>
+                                </button>
+                            </div>
+                            <div className="agents-grid">
+                                {agents
+                                    .filter((a) => customAgentIds.has(a.id))
+                                    .map((agent) => (
+                                        <div key={agent.id} className="custom-agent-wrapper">
+                                            <AgentCard
+                                                agent={agent}
+                                                onClick={() => setSelectedAgentId(agent.id)}
+                                            />
+                                            <button
+                                                className="custom-agent-delete"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleDeleteCustomAgent(agent.id.replace('custom_', ''));
+                                                }}
+                                                title="Delete custom agent"
+                                            >
+                                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                                                    <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    ))}
+                                {customAgentIds.size === 0 && (
+                                    <button className="add-agent-btn" onClick={() => setShowCreateModal(true)}>
+                                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                            <path d="M8 3V13M3 8H13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                                         </svg>
+                                        Create your first agent
                                     </button>
-                                </div>
-                            ))}
+                                )}
+                            </div>
+                        </div>
 
-                        {/* Default agents */}
-                        {agents
-                            .filter((a) => !customAgentIds.has(a.id))
-                            .map((agent) => (
-                                <AgentCard
-                                    key={agent.id}
-                                    agent={agent}
-                                    onClick={() => setSelectedAgentId(agent.id)}
-                                />
-                            ))}
+                        {/* Crowd section */}
+                        <div className="agents-section">
+                            <div className="agents-section-header">
+                                <span className="agents-section-title">Crowd</span>
+                                <span className="agents-section-count">{agents.filter((a) => !customAgentIds.has(a.id)).length}</span>
+                            </div>
+                            <div className="agents-grid">
+                                {agents
+                                    .filter((a) => !customAgentIds.has(a.id))
+                                    .map((agent) => (
+                                        <AgentCard
+                                            key={agent.id}
+                                            agent={agent}
+                                            onClick={() => setSelectedAgentId(agent.id)}
+                                        />
+                                    ))}
+                            </div>
+                        </div>
                     </div>
                 )}
 
@@ -282,7 +301,7 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
 
             {/* Agent create modal */}
             {showCreateModal && (
-                <AgentCreateModal onClose={() => setShowCreateModal(false)} />
+                <AgentCreateModal onClose={() => setShowCreateModal(false)} simAgentsRef={simAgentsRef} />
             )}
 
             {/* Agent detail modal */}

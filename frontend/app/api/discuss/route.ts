@@ -35,13 +35,24 @@ Respond ONLY with valid JSON, no markdown.`;
         const response = await openai.chat.completions.create({
             model: 'gpt-4.1-nano',
             messages: [{ role: 'system', content: systemPrompt }],
-            max_tokens: 200,
+            max_tokens: 400,
             temperature: 1.0,
             response_format: { type: 'json_object' },
         });
 
-        const content = response.choices[0].message.content;
-        const parsed = JSON.parse(content || '{}');
+        const content = response.choices[0].message.content || '{}';
+        let parsed;
+        try {
+            parsed = JSON.parse(content);
+        } catch {
+            // Truncated JSON — extract what we can
+            const speakerMatch = content.match(/"speaker"\s*:\s*"([^"]+)"/);
+            const messageMatch = content.match(/"message"\s*:\s*"((?:[^"\\]|\\.)*)/)
+            parsed = {
+                speaker: speakerMatch?.[1] || currentSpeaker.name,
+                message: messageMatch?.[1]?.replace(/\\"/g, '"').replace(/\\n/g, ' ') || 'I agree with the points raised.',
+            };
+        }
 
         return NextResponse.json(parsed);
     } catch (error: unknown) {

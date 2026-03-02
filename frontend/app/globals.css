@@ -1372,6 +1372,55 @@ body {
   color: var(--accent);
 }
 
+/* ── Agents Sections ────────────────────────────────────── */
+
+.agents-section {
+  margin-bottom: 16px;
+}
+
+.agents-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.agents-section-title {
+  font-size: 9px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 2.5px;
+  font-family: var(--font-mono);
+}
+
+.agents-section-count {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+}
+
+.add-agent-btn-sm {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.12s, border-color 0.12s;
+}
+
+.add-agent-btn-sm:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
 /* ── Create Agent Button ────────────────────────────────── */
 
 .add-agent-btn {
@@ -1404,23 +1453,6 @@ body {
 
 .custom-agent-wrapper {
   position: relative;
-}
-
-.custom-agent-badge {
-  position: absolute;
-  top: -4px;
-  left: 8px;
-  z-index: 2;
-  font-size: 8px;
-  font-weight: 700;
-  font-family: var(--font-mono);
-  color: var(--accent);
-  background: var(--bg-secondary);
-  border: 1px solid rgba(232, 108, 30, 0.25);
-  border-radius: 2px;
-  padding: 1px 5px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
 }
 
 .custom-agent-delete {

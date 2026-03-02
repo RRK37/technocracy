@@ -189,7 +189,7 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
             const groups = useAgentStore.getState().discussionGroups;
             for (const group of groups) {
                 if (!group.completed) {
-                    drawDiscussionCircle(ctx!, group.centerX, group.centerY, DISCUSSION_CONFIG.CIRCLE_RADIUS);
+                    drawDiscussionCircle(ctx!, group.centerX, group.centerY + AGENT_CONFIG.HEIGHT * 0.3, DISCUSSION_CONFIG.CIRCLE_RADIUS);
                 }
             }
 
