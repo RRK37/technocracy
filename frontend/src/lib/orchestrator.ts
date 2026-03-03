@@ -527,6 +527,13 @@ export async function runDeliberation(
     store.setPhase('thinking');
     store.setClusteredResults([]);
 
+    // Track usage
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    supabase.rpc('increment_usage', {
+        p_month: currentMonth,
+        p_questions: 1,
+    }).then(({ error }) => { if (error) console.error('Usage track error:', error); });
+
     // ── Recall user memories ──
     let memoryContext: string | undefined;
     try {
@@ -619,6 +626,13 @@ export async function processFollowUps(
     while (hasPending()) {
         if (isAborted(gen)) return;
         consumePending();
+
+        // Track follow-up usage
+        const currentMonth = new Date().toISOString().slice(0, 7);
+        supabase.rpc('increment_usage', {
+            p_month: currentMonth,
+            p_questions: 0.25,
+        }).then(({ error }) => { if (error) console.error('Usage track error:', error); });
 
         // Build conversation context
         const allMessages = useAgentStore.getState().messages;

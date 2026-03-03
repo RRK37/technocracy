@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback } from 'react';
+import { supabase } from '@/src/lib/supabase';
 
 export function useVoiceInput(onTranscript: (text: string) => void) {
     const [isRecording, setIsRecording] = useState(false);
@@ -38,7 +39,16 @@ export function useVoiceInput(onTranscript: (text: string) => void) {
                     const res = await fetch('/api/transcribe', { method: 'POST', body: form });
                     if (!res.ok) throw new Error('Transcription failed');
                     const { text } = await res.json();
-                    if (text) onTranscript(text);
+                    if (text) {
+                        onTranscript(text);
+
+                        // Track usage
+                        const currentMonth = new Date().toISOString().slice(0, 7);
+                        supabase.rpc('increment_usage', {
+                            p_month: currentMonth,
+                            p_voice: 1,
+                        }).then(({ error }) => { if (error) console.error('Usage track error:', error); });
+                    }
                 } catch (err) {
                     console.error('Transcription error:', err);
                 } finally {

@@ -65,6 +65,13 @@ export default function AgentCreateModal({ onClose, simAgentsRef }: AgentCreateM
                 setPersona(data.persona || '');
                 setLinkedinUrl('');
                 setShowLinkedinPopup(false);
+
+                // Track usage
+                const currentMonth = new Date().toISOString().slice(0, 7);
+                supabase.rpc('increment_usage', {
+                    p_month: currentMonth,
+                    p_linkedin: 1,
+                }).then(({ error }) => { if (error) console.error('Usage track error:', error); });
             } else {
                 setImportError(data.error || 'Import failed');
             }
