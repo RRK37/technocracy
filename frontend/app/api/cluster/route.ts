@@ -5,9 +5,36 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+const MAX_QUESTION_LEN = 500;
+const MAX_ANSWERS = 150;
+const MAX_ANSWER_LEN = 500;
+const MAX_AGENT_ID_LEN = 50;
+
 export async function POST(req: NextRequest) {
     try {
-        const { answers, question } = await req.json();
+        const body = await req.json();
+        const { answers, question } = body;
+
+        if (!question || typeof question !== 'string' || question.trim().length === 0) {
+            return NextResponse.json({ error: 'question is required' }, { status: 400 });
+        }
+        if (question.length > MAX_QUESTION_LEN) {
+            return NextResponse.json({ error: `question must be ${MAX_QUESTION_LEN} characters or fewer` }, { status: 400 });
+        }
+        if (!Array.isArray(answers) || answers.length === 0) {
+            return NextResponse.json({ error: 'answers must be a non-empty array' }, { status: 400 });
+        }
+        if (answers.length > MAX_ANSWERS) {
+            return NextResponse.json({ error: `answers must have ${MAX_ANSWERS} items or fewer` }, { status: 400 });
+        }
+        for (const a of answers) {
+            if (!a || typeof a.agentId !== 'string' || a.agentId.length > MAX_AGENT_ID_LEN) {
+                return NextResponse.json({ error: 'each answer must have a valid agentId' }, { status: 400 });
+            }
+            if (typeof a.answer !== 'string' || a.answer.length > MAX_ANSWER_LEN) {
+                return NextResponse.json({ error: `each answer must be a string of ${MAX_ANSWER_LEN} characters or fewer` }, { status: 400 });
+            }
+        }
 
         const answerList = answers
             .map((a: { agentId: string; answer: string }) => `[${a.agentId}]: ${a.answer}`)
