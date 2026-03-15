@@ -122,7 +122,7 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
                                         if (!agent) return null;
                                         return (
                                             <div
-                                                key={agentId}
+                                                key={`${i}-${agentId}`}
                                                 className="cluster-agent-row"
                                                 onClick={() => setSelectedAgentId(agentId)}
                                             >

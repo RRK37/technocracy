@@ -12,7 +12,7 @@ from openai import OpenAI
 load_dotenv()
 
 # --- Configuration ---
-CHAR_JSON = os.path.join(os.path.dirname(__file__), "..", "character-sprites", "data", "all-characters.json")
+CHAR_JSON = os.path.join(os.path.dirname(__file__), "..", "frontend", "public", "characters", "data", "all-characters.json")
 SEED = 7
 START_ID = 200
 END_ID = 299

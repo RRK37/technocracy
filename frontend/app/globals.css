@@ -1824,4 +1824,16 @@ body {
   .sidebar-open .sidebar {
     transform: translateX(0);
   }
+
+  .modal-overlay {
+    align-items: flex-end;
+  }
+
+  .modal-content {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+    padding: 20px 16px;
+  }
 }

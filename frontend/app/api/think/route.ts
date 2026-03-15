@@ -9,7 +9,7 @@ const MAX_QUESTION_LEN = 500;
 const MAX_NAME_LEN = 100;
 const MAX_PERSONA_LEN = 1000;
 const MAX_TRACE_ITEMS = 10;
-const MAX_TRACE_ITEM_LEN = 600;
+const MAX_TRACE_ITEM_LEN = 3000;
 
 export async function POST(req: NextRequest) {
     try {

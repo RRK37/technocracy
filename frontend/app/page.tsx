@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/providers/AuthProvider';
 import WorldCanvas from '@/src/components/WorldCanvas';
 import Sidebar from '@/src/components/Sidebar';
+import AgentDetailModal from '@/src/components/AgentDetailModal';
 import type { SimAgent } from '@/src/lib/SimAgent';
 import { useMemoryExtraction } from '@/src/hooks/useMemoryExtraction';
+import { useAgentStore } from '@/src/store/agentStore';
 
 export default function HomePage() {
   const { user, loading, signOut } = useAuth();
@@ -14,6 +16,7 @@ export default function HomePage() {
   const simAgentsRef = useRef<SimAgent[]>([]);
   const { extractMemories } = useMemoryExtraction();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { selectedAgentId, setSelectedAgentId } = useAgentStore();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -59,6 +62,10 @@ export default function HomePage() {
       </button>
 
       <Sidebar simAgentsRef={simAgentsRef} extractMemories={extractMemories} onSignOut={signOut} />
+
+      {selectedAgentId && (
+        <AgentDetailModal agentId={selectedAgentId} onClose={() => setSelectedAgentId(null)} />
+      )}
     </div>
   );
 }

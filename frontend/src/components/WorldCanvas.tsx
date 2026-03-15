@@ -53,10 +53,10 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
                     // Continue without custom agents
                 }
 
-                // Only use characters that have a name and persona
+                // Only use characters 200-299
                 const allKeys = Object.keys(json.characters).filter((key) => {
                     const c = json.characters[key];
-                    return c.name && c.persona;
+                    return c.name && c.persona && c.id >= 200 && c.id <= 299;
                 });
                 const shuffled = allKeys.sort(() => Math.random() - 0.5);
                 // Reserve slots for custom agents
@@ -236,6 +236,88 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
     }, [clampCamera]);
 
     const dragStart = useRef({ x: 0, y: 0 });
+    const lastTouchDistance = useRef<number | null>(null);
+
+    // Touch events — attached via addEventListener to allow passive: false
+    useEffect(() => {
+        const canvas = canvasRef.current;
+        if (!canvas) return;
+
+        const onTouchStart = (e: TouchEvent) => {
+            e.preventDefault();
+            if (e.touches.length === 1) {
+                const t = e.touches[0];
+                isDragging.current = true;
+                lastMouse.current = { x: t.clientX, y: t.clientY };
+                dragStart.current = { x: t.clientX, y: t.clientY };
+                lastTouchDistance.current = null;
+            } else if (e.touches.length === 2) {
+                isDragging.current = false;
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                lastTouchDistance.current = Math.hypot(dx, dy);
+            }
+        };
+
+        const onTouchMove = (e: TouchEvent) => {
+            e.preventDefault();
+            const cam = cameraRef.current;
+            if (e.touches.length === 1 && isDragging.current) {
+                const t = e.touches[0];
+                const dx = t.clientX - lastMouse.current.x;
+                const dy = t.clientY - lastMouse.current.y;
+                cam.x -= dx / cam.zoom;
+                cam.y -= dy / cam.zoom;
+                clampCamera(cam);
+                lastMouse.current = { x: t.clientX, y: t.clientY };
+            } else if (e.touches.length === 2 && lastTouchDistance.current !== null) {
+                const dx = e.touches[0].clientX - e.touches[1].clientX;
+                const dy = e.touches[0].clientY - e.touches[1].clientY;
+                const newDist = Math.hypot(dx, dy);
+                const minZoomW = canvas.width / WORLD_CONFIG.WIDTH;
+                const minZoomH = canvas.height / WORLD_CONFIG.HEIGHT;
+                const minZoom = Math.max(CAMERA_CONFIG.MIN_ZOOM, minZoomW, minZoomH);
+                cam.zoom = Math.max(minZoom, Math.min(CAMERA_CONFIG.MAX_ZOOM, cam.zoom * (newDist / lastTouchDistance.current)));
+                clampCamera(cam);
+                lastTouchDistance.current = newDist;
+            }
+        };
+
+        const onTouchEnd = (e: TouchEvent) => {
+            if (e.touches.length === 0 && isDragging.current) {
+                isDragging.current = false;
+                const t = e.changedTouches[0];
+                const dx = t.clientX - dragStart.current.x;
+                const dy = t.clientY - dragStart.current.y;
+                // Treat as tap if movement was small
+                if (Math.abs(dx) <= 10 && Math.abs(dy) <= 10) {
+                    const cam = cameraRef.current;
+                    const rect = canvas.getBoundingClientRect();
+                    const screenX = t.clientX - rect.left;
+                    const screenY = t.clientY - rect.top;
+                    const worldX = (screenX - canvas.width / 2) / cam.zoom + cam.x;
+                    const worldY = (screenY - canvas.height / 2) / cam.zoom + cam.y;
+                    const hitRadius = AGENT_CONFIG.WIDTH * 0.8;
+                    for (const agent of simAgentsRef.current) {
+                        if (Math.hypot(agent.x - worldX, agent.y - worldY) < hitRadius) {
+                            useAgentStore.getState().setSelectedAgentId(agent.id);
+                            return;
+                        }
+                    }
+                }
+            }
+            lastTouchDistance.current = null;
+        };
+
+        canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+        canvas.addEventListener('touchmove', onTouchMove, { passive: false });
+        canvas.addEventListener('touchend', onTouchEnd, { passive: false });
+        return () => {
+            canvas.removeEventListener('touchstart', onTouchStart);
+            canvas.removeEventListener('touchmove', onTouchMove);
+            canvas.removeEventListener('touchend', onTouchEnd);
+        };
+    }, [clampCamera]);
 
     const handleMouseDown = useCallback((e: React.MouseEvent) => {
         isDragging.current = true;

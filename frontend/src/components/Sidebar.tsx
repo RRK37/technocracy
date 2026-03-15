@@ -4,7 +4,6 @@ import { useState, useCallback } from 'react';
 import { useAgentStore } from '@/src/store/agentStore';
 import ResultsPanel from './ResultsPanel';
 import AgentCard from './AgentCard';
-import AgentDetailModal from './AgentDetailModal';
 import AgentCreateModal from './AgentCreateModal';
 import HistoryPanel from './HistoryPanel';
 import { runDeliberation, processFollowUps, saveAndReset } from '@/src/lib/orchestrator';
@@ -306,13 +305,6 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                 <AgentCreateModal onClose={() => setShowCreateModal(false)} simAgentsRef={simAgentsRef} />
             )}
 
-            {/* Agent detail modal */}
-            {selectedAgentId && (
-                <AgentDetailModal
-                    agentId={selectedAgentId}
-                    onClose={() => setSelectedAgentId(null)}
-                />
-            )}
         </div>
     );
 }
