@@ -2,12 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { supabaseAdmin } from '@/src/lib/supabase-server';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-// Disable body parsing — Stripe requires the raw body for signature verification
-export const config = { api: { bodyParser: false } };
-
 export async function POST(req: NextRequest) {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
     const sig = req.headers.get('stripe-signature');
     if (!sig) return NextResponse.json({ error: 'No signature' }, { status: 400 });
 

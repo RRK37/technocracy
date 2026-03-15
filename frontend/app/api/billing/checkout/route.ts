@@ -2,16 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { supabaseAdmin } from '@/src/lib/supabase-server';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
-
-const PACKS: Record<string, { priceId: string; credits: number; label: string }> = {
-    starter:  { priceId: process.env.STRIPE_PRICE_STARTER!,  credits: 10,  label: '10 questions' },
-    standard: { priceId: process.env.STRIPE_PRICE_STANDARD!, credits: 30,  label: '30 questions' },
-    pro:      { priceId: process.env.STRIPE_PRICE_PRO!,      credits: 100, label: '100 questions' },
-};
-
 export async function POST(req: NextRequest) {
     try {
+        const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+
+        const PACKS: Record<string, { priceId: string; credits: number; label: string }> = {
+            starter:  { priceId: process.env.STRIPE_PRICE_STARTER!,  credits: 10,  label: '10 questions' },
+            standard: { priceId: process.env.STRIPE_PRICE_STANDARD!, credits: 30,  label: '30 questions' },
+            pro:      { priceId: process.env.STRIPE_PRICE_PRO!,      credits: 100, label: '100 questions' },
+        };
+
         const authHeader = req.headers.get('authorization');
         const token = authHeader?.replace('Bearer ', '');
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
