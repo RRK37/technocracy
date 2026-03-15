@@ -38,7 +38,7 @@ export function drawSpeechBubble(
     const RADIUS = 4;
 
     ctx.save();
-    ctx.font = `${FONT_SIZE}px 'DM Sans', -apple-system, sans-serif`;
+    ctx.font = `${FONT_SIZE}px 'JetBrains Mono', monospace`;
 
     // Word wrap
     const words = text.split(' ');
