@@ -31,28 +31,6 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [confirmingNew, setConfirmingNew] = useState(false);
     const [quotaError, setQuotaError] = useState<{ used: number; quota: number } | null>(null);
-    const [buyingPack, setBuyingPack] = useState<string | null>(null);
-
-    const handleBuyCredits = useCallback(async (pack: string) => {
-        setBuyingPack(pack);
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) return;
-            const res = await fetch('/api/billing/checkout', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({ pack }),
-            });
-            const data = await res.json();
-            if (data.url) window.location.href = data.url;
-        } catch (err) {
-            console.error('Checkout error:', err);
-        }
-        setBuyingPack(null);
-    }, []);
     const { isRecording, isTranscribing, toggleRecording } = useVoiceInput(
         useCallback((text: string) => setInput((prev) => (prev ? prev + ' ' + text : text)), []),
     );
@@ -158,28 +136,11 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                     </div>
                 )}
 
-                {/* Quota exceeded — buy credits */}
+                {/* Quota exceeded */}
                 {quotaError && (
                     <div className="quota-banner">
                         <strong>Monthly limit reached</strong>
-                        <span>{quotaError.used} / {quotaError.quota} free questions used this month. Buy credits to continue — they never expire.</span>
-                        <div className="quota-packs">
-                            {[
-                                { key: 'starter',  label: '10 questions', price: '£5' },
-                                { key: 'standard', label: '30 questions', price: '£12' },
-                                { key: 'pro',      label: '100 questions', price: '£30' },
-                            ].map((p) => (
-                                <button
-                                    key={p.key}
-                                    className="quota-pack-btn"
-                                    onClick={() => handleBuyCredits(p.key)}
-                                    disabled={buyingPack !== null}
-                                >
-                                    <span className="pack-label">{p.label}</span>
-                                    <span className="pack-price">{p.price}</span>
-                                </button>
-                            ))}
-                        </div>
+                        <span>{quotaError.used} / {quotaError.quota} free questions used this month.</span>
                     </div>
                 )}
 
