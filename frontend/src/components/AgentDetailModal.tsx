@@ -10,9 +10,10 @@ interface AgentDetailModalProps {
 
 export default function AgentDetailModal({ agentId, onClose }: AgentDetailModalProps) {
     const agent = useAgentStore((s) => s.agents.find((a) => a.id === agentId));
+    const chatMessages = useAgentStore((s) => s.directChats[agentId] ?? []);
+    const addDirectChatMessage = useAgentStore((s) => s.addDirectChatMessage);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [chatInput, setChatInput] = useState('');
-    const [chatMessages, setChatMessages] = useState<{ role: 'user' | 'agent'; text: string }[]>([]);
     const [chatting, setChatting] = useState(false);
 
     const agentName = agent?.data.name || `Agent ${agent?.data.id || agentId.replace('character_', '#')}`;
@@ -42,7 +43,7 @@ export default function AgentDetailModal({ agentId, onClose }: AgentDetailModalP
         setChatting(true);
         const userMsg = chatInput.trim();
         setChatInput('');
-        setChatMessages((prev) => [...prev, { role: 'user', text: userMsg }]);
+        addDirectChatMessage(agentId, { role: 'user', text: userMsg });
 
         try {
             const res = await fetch('/api/chat', {
@@ -60,14 +61,14 @@ export default function AgentDetailModal({ agentId, onClose }: AgentDetailModalP
             if (res.ok) {
                 const data = await res.json();
                 if (data?.reply) {
-                    setChatMessages((prev) => [...prev, { role: 'agent', text: data.reply }]);
+                    addDirectChatMessage(agentId, { role: 'agent', text: data.reply });
                 }
             }
         } catch (err) {
             console.error('Chat error:', err);
         }
         setChatting(false);
-    }, [chatInput, chatting, agent]);
+    }, [chatInput, chatting, agent, agentId, addDirectChatMessage]);
 
     if (!agent) return null;
 

@@ -48,13 +48,13 @@ export async function POST(req: NextRequest) {
 
         const systemPrompt = `You are ${name}. ${persona}
 
-Someone has come to you for advice. They are asking the community for their perspectives. Think about their question carefully from your unique perspective, then give them your honest advice.${traceContext}
+This question was put to you: "${question}"
 
-Their question is: "${question}"
+Answer it. Your values, experiences, and instincts shape everything about how you see this — let that come through. State your position clearly. Don't hedge to seem balanced unless that's genuinely who you are. Don't explain your own personality — just think and speak as yourself.${traceContext}
 
 Respond with a JSON object containing:
-- "reasoning": Your internal thought process (2-4 sentences of pondering from your character's perspective)
-- "answer": Your advice to the person asking (1-3 sentences, speak directly to them using "you", give a clear position)
+- "reasoning": Your raw internal reaction (2-4 sentences — gut feelings, associations, things this reminds you of)
+- "answer": Your position (1-3 sentences, direct, to the person asking)
 
 Respond ONLY with valid JSON, no markdown.`;
 

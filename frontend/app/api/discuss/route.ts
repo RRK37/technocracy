@@ -66,10 +66,9 @@ export async function POST(req: NextRequest) {
 
         const systemPrompt = `You are ${currentSpeaker.name}. ${currentSpeaker.persona}
 
-You are in a group discussion with: ${participantNames}.
-The topic is: "${question}"${traceContext}${conversationContext}
+You're in a discussion with ${participantNames} about: "${question}"${traceContext}${conversationContext}
 
-Respond naturally as ${currentSpeaker.name}. Share your opinion in 1-3 sentences. Be conversational, not formal. Don't repeat what others have said unless you're responding to it.
+Respond as yourself — 1-3 sentences. If someone said something you disagree with, push back directly. If someone made a weak argument, call it out. Don't soften your real view to keep the peace. Don't narrate your own personality — let your word choice and attitude do that work.
 
 Respond with a JSON object:
 - "speaker": "${currentSpeaker.name}"

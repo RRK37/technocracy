@@ -492,16 +492,33 @@ export async function runDeliberation(
 ): Promise<void> {
     const store = useAgentStore.getState();
     const gen = store.generation;
+
+    // ── Check + record quota server-side before starting ──
+    const { data: { session: startSession } } = await supabase.auth.getSession();
+    if (!startSession?.access_token) throw new Error('Not authenticated');
+
+    const quotaRes = await fetch('/api/deliberation/start', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${startSession.access_token}`,
+        },
+        body: JSON.stringify({ questions: 1 }),
+    });
+
+    if (!quotaRes.ok) {
+        const quotaData = await quotaRes.json();
+        if (quotaRes.status === 402) {
+            const err = new Error('quota_exceeded') as Error & { quotaData: unknown };
+            err.quotaData = quotaData;
+            throw err;
+        }
+        throw new Error(quotaData.error || 'Failed to start deliberation');
+    }
+
     store.setQuestion(question);
     store.setPhase('thinking');
     store.setClusteredResults([]);
-
-    // Track usage
-    const currentMonth = new Date().toISOString().slice(0, 7);
-    supabase.rpc('increment_usage', {
-        p_month: currentMonth,
-        p_questions: 1,
-    }).then(({ error }) => { if (error) console.error('Usage track error:', error); });
 
     // ── Recall user memories ──
     let memoryContext: string | undefined;
@@ -596,12 +613,24 @@ export async function processFollowUps(
         if (isAborted(gen)) return;
         consumePending();
 
-        // Track follow-up usage
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        supabase.rpc('increment_usage', {
-            p_month: currentMonth,
-            p_questions: 0.25,
-        }).then(({ error }) => { if (error) console.error('Usage track error:', error); });
+        // Check + record follow-up quota server-side
+        const { data: { session: followUpSession } } = await supabase.auth.getSession();
+        if (followUpSession?.access_token) {
+            const followUpQuota = await fetch('/api/deliberation/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${followUpSession.access_token}`,
+                },
+                body: JSON.stringify({ questions: 0.25 }),
+            });
+            if (followUpQuota.status === 402) {
+                const data = await followUpQuota.json();
+                const err = new Error('quota_exceeded') as Error & { quotaData: unknown };
+                err.quotaData = data;
+                throw err;
+            }
+        }
 
         // Build conversation context
         const allMessages = useAgentStore.getState().messages;

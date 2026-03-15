@@ -33,6 +33,12 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# Character sprites above 300 — keep locally, exclude from repo
+public/characters/character_030[1-9]/
+public/characters/character_03[1-9][0-9]/
+public/characters/character_0[4-9][0-9][0-9]/
+public/characters/character_1000/
+
 # vercel
 .vercel
 

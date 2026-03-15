@@ -50,6 +50,10 @@ interface AgentStore {
     addCustomAgent: (agent: CustomAgent) => void;
     removeCustomAgent: (id: string) => void;
 
+    // Direct chat messages per agent
+    directChats: Record<string, { role: 'user' | 'agent'; text: string }[]>;
+    addDirectChatMessage: (agentId: string, msg: { role: 'user' | 'agent'; text: string }) => void;
+
     // Selected agent (for detail modal)
     selectedAgentId: string | null;
     setSelectedAgentId: (id: string | null) => void;
@@ -110,6 +114,15 @@ export const useAgentStore = create<AgentStore>((set) => ({
     setCustomAgents: (customAgents) => set({ customAgents }),
     addCustomAgent: (agent) => set((s) => ({ customAgents: [...s.customAgents, agent] })),
     removeCustomAgent: (id) => set((s) => ({ customAgents: s.customAgents.filter((a) => a.id !== id) })),
+
+    directChats: {},
+    addDirectChatMessage: (agentId, msg) =>
+        set((s) => ({
+            directChats: {
+                ...s.directChats,
+                [agentId]: [...(s.directChats[agentId] ?? []), msg],
+            },
+        })),
 
     selectedAgentId: null,
     setSelectedAgentId: (selectedAgentId) => set({ selectedAgentId }),

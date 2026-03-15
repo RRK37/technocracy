@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
+import { supabaseAdmin } from '@/src/lib/supabase-server';
 
 const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
@@ -10,6 +11,35 @@ const APIFY_BASE = 'https://api.apify.com/v2';
 
 export async function POST(req: NextRequest) {
     try {
+        const authHeader = req.headers.get('authorization');
+        const token = authHeader?.replace('Bearer ', '');
+        if (!token) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        }
+
+        // Check + reserve LinkedIn quota before making any external calls
+        const month = new Date().toISOString().slice(0, 7);
+        const { data: quotaData, error: quotaError } = await supabaseAdmin.rpc('check_and_increment_usage', {
+            p_user_id:   user.id,
+            p_month:     month,
+            p_questions: 0,
+            p_linkedin:  1,
+        });
+
+        if (quotaError) {
+            console.error('LinkedIn quota check error:', quotaError);
+            return NextResponse.json({ error: 'Failed to check quota' }, { status: 500 });
+        }
+
+        if (!quotaData.ok) {
+            return NextResponse.json(quotaData, { status: 402 });
+        }
+
         const { linkedinUrl } = await req.json();
 
         if (!linkedinUrl || !linkedinUrl.includes('linkedin.com/in/')) {

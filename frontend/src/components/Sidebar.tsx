@@ -30,6 +30,29 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
     const [running, setRunning] = useState(false);
     const [showCreateModal, setShowCreateModal] = useState(false);
     const [confirmingNew, setConfirmingNew] = useState(false);
+    const [quotaError, setQuotaError] = useState<{ used: number; quota: number } | null>(null);
+    const [buyingPack, setBuyingPack] = useState<string | null>(null);
+
+    const handleBuyCredits = useCallback(async (pack: string) => {
+        setBuyingPack(pack);
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) return;
+            const res = await fetch('/api/billing/checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session.access_token}`,
+                },
+                body: JSON.stringify({ pack }),
+            });
+            const data = await res.json();
+            if (data.url) window.location.href = data.url;
+        } catch (err) {
+            console.error('Checkout error:', err);
+        }
+        setBuyingPack(null);
+    }, []);
     const { isRecording, isTranscribing, toggleRecording } = useVoiceInput(
         useCallback((text: string) => setInput((prev) => (prev ? prev + ' ' + text : text)), []),
     );
@@ -45,10 +68,16 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
             // First message = initial question → full deliberation
             addMessage({ role: 'user', text });
             setRunning(true);
+            setQuotaError(null);
             try {
                 await runDeliberation(simAgentsRef.current, text);
-            } catch (err) {
-                console.error('Deliberation error:', err);
+            } catch (err: unknown) {
+                if (err instanceof Error && err.message === 'quota_exceeded') {
+                    const qd = (err as Error & { quotaData: { used: number; quota: number } }).quotaData;
+                    setQuotaError(qd);
+                } else {
+                    console.error('Deliberation error:', err);
+                }
             }
             setRunning(false);
         } else if (isBusy || running) {
@@ -61,10 +90,16 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
             addMessage({ role: 'user', text });
             queueMessage(text);
             setRunning(true);
+            setQuotaError(null);
             try {
                 await processFollowUps(simAgentsRef.current);
-            } catch (err) {
-                console.error('Follow-up error:', err);
+            } catch (err: unknown) {
+                if (err instanceof Error && err.message === 'quota_exceeded') {
+                    const qd = (err as Error & { quotaData: { used: number; quota: number } }).quotaData;
+                    setQuotaError(qd);
+                } else {
+                    console.error('Follow-up error:', err);
+                }
             }
             setRunning(false);
         }
@@ -120,6 +155,31 @@ export default function Sidebar({ simAgentsRef, extractMemories, onSignOut }: Si
                                 <span className="thread-text">{msg.text}</span>
                             </div>
                         ))}
+                    </div>
+                )}
+
+                {/* Quota exceeded — buy credits */}
+                {quotaError && (
+                    <div className="quota-banner">
+                        <strong>Monthly limit reached</strong>
+                        <span>{quotaError.used} / {quotaError.quota} free questions used this month. Buy credits to continue — they never expire.</span>
+                        <div className="quota-packs">
+                            {[
+                                { key: 'starter',  label: '10 questions', price: '£5' },
+                                { key: 'standard', label: '30 questions', price: '£12' },
+                                { key: 'pro',      label: '100 questions', price: '£30' },
+                            ].map((p) => (
+                                <button
+                                    key={p.key}
+                                    className="quota-pack-btn"
+                                    onClick={() => handleBuyCredits(p.key)}
+                                    disabled={buyingPack !== null}
+                                >
+                                    <span className="pack-label">{p.label}</span>
+                                    <span className="pack-price">{p.price}</span>
+                                </button>
+                            ))}
+                        </div>
                     </div>
                 )}
 

@@ -24,13 +24,13 @@ Deno.serve(async (req) => {
 
         const systemPrompt = `You are ${name}. ${persona}
 
-You are a citizen in a deliberation. Someone has asked the community a question. Think about it carefully from your unique perspective.${traceContext}
+This question was put to you: "${question}"
 
-The question is: "${question}"
+Answer it. Your values, experiences, and instincts shape everything about how you see this — let that come through. State your position clearly. Don't hedge to seem balanced unless that's genuinely who you are. Don't explain your own personality — just think and speak as yourself.${traceContext}
 
 Respond with a JSON object containing:
-- "reasoning": Your internal thought process (2-4 sentences of pondering/reasoning from your character's perspective)
-- "answer": Your concise answer to the question (1-3 sentences, clear position)
+- "reasoning": Your raw internal reaction (2-4 sentences — gut feelings, associations, things this reminds you of)
+- "answer": Your position (1-3 sentences, direct, to the person asking)
 
 Respond ONLY with valid JSON, no markdown.`;
 

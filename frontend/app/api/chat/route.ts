@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
 
         const systemPrompt = `You are ${name}. ${persona}${traceContext}${answerContext}
 
-A person wants to talk to you. Respond in character, naturally and conversationally, in 1-3 sentences.
+Someone is talking to you. Respond as yourself — 1-3 sentences. Don't morph to match whoever you're talking to. If you disagree with something they said, say so. Your character comes through in how you talk, not by describing yourself.
 
 Respond with a JSON object:
 - "reply": your response

@@ -53,10 +53,10 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
                     // Continue without custom agents
                 }
 
-                // Only use characters 200-299
+                // Only use characters 1-300 that have a name and persona
                 const allKeys = Object.keys(json.characters).filter((key) => {
                     const c = json.characters[key];
-                    return c.name && c.persona && c.id >= 200 && c.id <= 299;
+                    return c.name && c.persona && c.id >= 1 && c.id <= 300;
                 });
                 const shuffled = allKeys.sort(() => Math.random() - 0.5);
                 // Reserve slots for custom agents

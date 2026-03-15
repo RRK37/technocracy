@@ -41,8 +41,8 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    if (sprite_id < 1 || sprite_id > 1000) {
-        return NextResponse.json({ error: 'sprite_id must be between 1 and 1000' }, { status: 400 });
+    if (sprite_id < 1 || sprite_id > 300) {
+        return NextResponse.json({ error: 'sprite_id must be between 1 and 300' }, { status: 400 });
     }
 
     const { data, error } = await supabaseAdmin

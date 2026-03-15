@@ -85,6 +85,32 @@ Monthly usage counters per user. Used for tracking (not yet for hard enforcement
 
 ---
 
+### `user_plans` (migration 005)
+Subscription tier and quotas per user. Auto-created for every new user via trigger.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | `uuid` | PK, auto-generated |
+| `user_id` | `uuid` | FK → `auth.users.id` ON DELETE CASCADE, UNIQUE |
+| `tier` | `text` | `free` / `pro` / `team` |
+| `questions_quota` | `integer` | Monthly question allowance; `-1` = unlimited |
+| `linkedin_quota` | `integer` | Monthly LinkedIn import allowance; `-1` = unlimited |
+| `stripe_customer_id` | `text` | Nullable, set on first payment |
+| `stripe_subscription_id` | `text` | Nullable, set when subscribed |
+| `created_at` / `updated_at` | `timestamptz` | Auto-set |
+
+**Tier defaults:** free = 5 questions / 1 LinkedIn; pro = 100 / 20; team = unlimited (-1)
+
+**RLS policies:** SELECT for own row only. Writes are via `SECURITY DEFINER` functions only.
+
+**Trigger:** `on_auth_user_created` — inserts a free plan row for every new `auth.users` row.
+
+**Functions:**
+- `check_and_increment_usage(p_user_id, p_month, p_questions, p_linkedin)` — atomically checks quota and increments if allowed. Returns `{ ok, tier }` or `{ ok: false, reason, used, quota, tier }`. Called from API routes (not client).
+- `create_default_plan()` — trigger function, creates free plan on signup.
+
+---
+
 ## Applying migrations
 
 Run each file in order in the Supabase SQL Editor:

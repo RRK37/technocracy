@@ -54,9 +54,13 @@ export default function AgentCreateModal({ onClose, simAgentsRef }: AgentCreateM
         setImporting(true);
         setImportError('');
         try {
+            const { data: { session } } = await supabase.auth.getSession();
             const res = await fetch('/api/linkedin', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(session?.access_token ? { 'Authorization': `Bearer ${session.access_token}` } : {}),
+                },
                 body: JSON.stringify({ linkedinUrl: linkedinUrl.trim() }),
             });
             const data = await res.json();
@@ -65,13 +69,8 @@ export default function AgentCreateModal({ onClose, simAgentsRef }: AgentCreateM
                 setPersona(data.persona || '');
                 setLinkedinUrl('');
                 setShowLinkedinPopup(false);
-
-                // Track usage
-                const currentMonth = new Date().toISOString().slice(0, 7);
-                supabase.rpc('increment_usage', {
-                    p_month: currentMonth,
-                    p_linkedin: 1,
-                }).then(({ error }) => { if (error) console.error('Usage track error:', error); });
+            } else if (res.status === 402) {
+                setImportError(`LinkedIn import limit reached for this month (${data.used}/${data.quota} used).`);
             } else {
                 setImportError(data.error || 'Import failed');
             }
