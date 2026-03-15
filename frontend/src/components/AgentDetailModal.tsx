@@ -10,7 +10,7 @@ interface AgentDetailModalProps {
 
 export default function AgentDetailModal({ agentId, onClose }: AgentDetailModalProps) {
     const agent = useAgentStore((s) => s.agents.find((a) => a.id === agentId));
-    const chatMessages = useAgentStore((s) => s.directChats[agentId] ?? []);
+    const chatMessages = useAgentStore((s) => s.directChats[agentId]) ?? [];
     const addDirectChatMessage = useAgentStore((s) => s.addDirectChatMessage);
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [chatInput, setChatInput] = useState('');
