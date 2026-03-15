@@ -459,41 +459,10 @@ async function finalCluster(
     }
 }
 
-/** Save current results to history and reset session */
-export async function saveAndReset(simAgents: SimAgent[]): Promise<void> {
-    const store = useAgentStore.getState();
-    const question = store.question;
-    const clusteredResults = store.clusteredResults;
-
-    // Save to history if there are results
-    if (question && clusteredResults.length > 0) {
-        try {
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { data, error } = await supabase
-                    .from('question_history')
-                    .insert({
-                        user_id: user.id,
-                        question,
-                        clustered_results: {
-                            themes: clusteredResults,
-                            total_agents: simAgents.length,
-                        },
-                    })
-                    .select()
-                    .single();
-
-                if (data && !error) {
-                    store.addHistory(data);
-                }
-            }
-        } catch (err) {
-            console.error('History save on reset failed:', err);
-        }
-    }
-
+/** Reset session (results are already saved by finalCluster on completion) */
+export async function saveAndReset(_simAgents: SimAgent[]): Promise<void> {
     // Reset aborts all in-flight work via generation increment
-    store.resetSession();
+    useAgentStore.getState().resetSession();
 }
 
 /** Start background clustering interval (every 4s) */
