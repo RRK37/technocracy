@@ -4,9 +4,39 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { SimAgent } from '@/src/lib/SimAgent';
 import { useAgentStore } from '@/src/store/agentStore';
 import { WORLD_CONFIG, AGENT_CONFIG, CAMERA_CONFIG, DISCUSSION_CONFIG } from '@/src/lib/world';
-import { drawGrid, drawDiscussionCircle } from '@/src/lib/canvas-utils';
+import { drawGrid, drawDiscussionCircle, drawInfluenceArc } from '@/src/lib/canvas-utils';
 import type { CharacterData, CharactersJSON, AgentRuntime, CustomAgent } from '@/src/types/agent';
 import { supabase } from '@/src/lib/supabase';
+
+// Fallback palette used if the embedding API call fails
+const FALLBACK_COLORS = [
+    '#e74c3c', '#3498db', '#2ecc71', '#f39c12',
+    '#9b59b6', '#1abc9c', '#e91e63', '#00bcd4',
+];
+
+const ARC_FADE_MS = 30_000;
+
+/** Spread N cluster centroids evenly across the world */
+function computeClusterCentroids(n: number): { x: number; y: number }[] {
+    const mx = 300, my = 250;
+    const uw = WORLD_CONFIG.WIDTH - mx * 2;
+    const uh = WORLD_CONFIG.HEIGHT - my * 2;
+    const cols = Math.max(1, Math.ceil(Math.sqrt(n * (uw / uh))));
+    const rows = Math.max(1, Math.ceil(n / cols));
+    return Array.from({ length: n }, (_, i) => {
+        const col = i % cols;
+        const row = Math.floor(i / cols);
+        return {
+            x: mx + (cols > 1 ? (col / (cols - 1)) * uw : uw / 2),
+            y: my + (rows > 1 ? (row / (rows - 1)) * uh : uh / 2),
+        };
+    });
+}
+
+interface InfluenceArc {
+    agentIds: string[];
+    completedAt: number;
+}
 
 interface WorldCanvasProps {
     onAgentsReady: (agents: SimAgent[]) => void;
@@ -17,12 +47,21 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
     const simAgentsRef = useRef<SimAgent[]>([]);
     const animFrameRef = useRef<number>(0);
 
+    // Influence arcs (feature 2)
+    const influenceArcsRef = useRef<InfluenceArc[]>([]);
+    const prevGroupKeysRef = useRef<Set<string>>(new Set());
+
+    // Persistent label→color map (populated from embedding API)
+    const clusterColorMapRef = useRef<Map<string, string>>(new Map());
+    // Track last fetched label set so we don't re-call if labels haven't changed
+    const lastLabelKeyRef = useRef<string>('');
+
     // Camera state
     const cameraRef = useRef<{ x: number; y: number; zoom: number }>({ x: WORLD_CONFIG.WIDTH / 2, y: WORLD_CONFIG.HEIGHT / 2, zoom: CAMERA_CONFIG.DEFAULT_ZOOM });
     const isDragging = useRef(false);
     const lastMouse = useRef({ x: 0, y: 0 });
 
-    const { phase, discussionGroups } = useAgentStore();
+    const { phase, discussionGroups, clusteredResults, generation } = useAgentStore();
     const [loaded, setLoaded] = useState(false);
 
     // Load character data and create agents
@@ -150,6 +189,93 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
         return () => window.removeEventListener('resize', resize);
     }, []);
 
+    // Reset visual state on session reset (feature 1, 2, 4)
+    useEffect(() => {
+        simAgentsRef.current.forEach(a => {
+            a.setCluster(null);
+            a.setDriftTarget(null, null);
+        });
+        influenceArcsRef.current = [];
+        prevGroupKeysRef.current.clear();
+        clusterColorMapRef.current.clear();
+        lastLabelKeyRef.current = '';
+    }, [generation]);
+
+    // Propagate cluster colors + drift targets when results arrive (feature 1, 4)
+    useEffect(() => {
+        if (clusteredResults.length === 0) {
+            simAgentsRef.current.forEach(a => {
+                a.setCluster(null);
+                a.setDriftTarget(null, null);
+            });
+            return;
+        }
+
+        // Assign drift targets immediately (don't wait for color fetch)
+        const centroids = computeClusterCentroids(clusteredResults.length);
+        clusteredResults.forEach((cluster, i) => {
+            cluster.agentIds.forEach(id => {
+                const agent = simAgentsRef.current.find(a => a.id === id);
+                if (agent) agent.setDriftTarget(centroids[i].x, centroids[i].y);
+            });
+        });
+
+        // Re-apply cached colors for agents whose label we already know
+        const colorMap = clusterColorMapRef.current;
+        clusteredResults.forEach(cluster => {
+            const color = colorMap.get(cluster.label);
+            if (color) {
+                cluster.agentIds.forEach(id => {
+                    const agent = simAgentsRef.current.find(a => a.id === id);
+                    if (agent) agent.setCluster(color);
+                });
+            }
+        });
+
+        // Only fetch embeddings when the label set actually changes
+        const labels = clusteredResults.map(c => c.label);
+        const labelKey = [...labels].sort().join('||');
+        if (labelKey === lastLabelKeyRef.current) return;
+        lastLabelKeyRef.current = labelKey;
+
+        fetch('/api/cluster-colors', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ labels }),
+        })
+            .then(r => r.json())
+            .then(({ colors }: { colors: Record<string, string> }) => {
+                // Discard if the cluster set changed while we were waiting
+                if (lastLabelKeyRef.current !== labelKey) return;
+                Object.entries(colors).forEach(([label, color]) => colorMap.set(label, color));
+                useAgentStore.getState().setClusterColors(Object.fromEntries(colorMap));
+                // Apply to agents
+                clusteredResults.forEach(cluster => {
+                    const color = colorMap.get(cluster.label);
+                    if (color) {
+                        cluster.agentIds.forEach(id => {
+                            const agent = simAgentsRef.current.find(a => a.id === id);
+                            if (agent) agent.setCluster(color);
+                        });
+                    }
+                });
+            })
+            .catch(() => {
+                // Fallback to palette on error
+                clusteredResults.forEach((cluster, i) => {
+                    if (!colorMap.has(cluster.label)) {
+                        colorMap.set(cluster.label, FALLBACK_COLORS[i % FALLBACK_COLORS.length]);
+                    }
+                    const color = colorMap.get(cluster.label)!;
+                    cluster.agentIds.forEach(id => {
+                        const agent = simAgentsRef.current.find(a => a.id === id);
+                        if (agent) agent.setCluster(color);
+                    });
+                });
+                useAgentStore.getState().setClusterColors(Object.fromEntries(colorMap));
+            });
+    }, [clusteredResults]);
+
     // Game loop
     useEffect(() => {
         if (!loaded) return;
@@ -184,9 +310,35 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
             // Draw grid
             drawGrid(ctx!, WORLD_CONFIG.WIDTH, WORLD_CONFIG.HEIGHT);
 
+            // Detect newly completed discussion groups → record influence arcs (feature 2)
+            const now = Date.now();
+            const groups = useAgentStore.getState().discussionGroups;
+            for (const group of groups) {
+                if (!group.completed) continue;
+                const key = [...group.agentIds].sort().join('|');
+                if (!prevGroupKeysRef.current.has(key)) {
+                    prevGroupKeysRef.current.add(key);
+                    if (group.agentIds.length >= 2) {
+                        influenceArcsRef.current.push({ agentIds: group.agentIds, completedAt: now });
+                    }
+                }
+            }
+
+            // Expire and draw influence arcs (feature 2)
+            influenceArcsRef.current = influenceArcsRef.current.filter(arc => now - arc.completedAt < ARC_FADE_MS);
+            for (const arc of influenceArcsRef.current) {
+                const alpha = (1 - (now - arc.completedAt) / ARC_FADE_MS) * 0.35;
+                const members = arc.agentIds
+                    .map(id => agents.find(a => a.id === id))
+                    .filter((a): a is SimAgent => a !== undefined);
+                for (let i = 0; i < members.length; i++) {
+                    for (let j = i + 1; j < members.length; j++) {
+                        drawInfluenceArc(ctx!, members[i].x, members[i].y, members[j].x, members[j].y, alpha);
+                    }
+                }
+            }
 
             // Draw discussion circles
-            const groups = useAgentStore.getState().discussionGroups;
             for (const group of groups) {
                 if (!group.completed) {
                     drawDiscussionCircle(ctx!, group.centerX, group.centerY + AGENT_CONFIG.HEIGHT * 0.3, DISCUSSION_CONFIG.CIRCLE_RADIUS);

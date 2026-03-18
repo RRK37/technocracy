@@ -164,6 +164,65 @@ export function drawDiscussionCircle(
 }
 
 /**
+ * Parse hex color to rgba string
+ */
+function hexToRgba(hex: string, alpha: number): string {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r},${g},${b},${alpha.toFixed(3)})`;
+}
+
+/**
+ * Draw a soft radial glow (cluster aura) beneath an agent
+ */
+export function drawAgentAura(
+    ctx: CanvasRenderingContext2D,
+    x: number, y: number,
+    color: string,
+    opacity: number,
+): void {
+    const radius = 54;
+    const cy = y + 18;
+    const gradient = ctx.createRadialGradient(x, cy, 0, x, cy, radius);
+    gradient.addColorStop(0,    hexToRgba(color, 0.50 * opacity));
+    gradient.addColorStop(0.45, hexToRgba(color, 0.22 * opacity));
+    gradient.addColorStop(1,    hexToRgba(color, 0));
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(x, cy, radius, 0, Math.PI * 2);
+    ctx.fillStyle = gradient;
+    ctx.fill();
+    ctx.restore();
+}
+
+/**
+ * Draw a fading quadratic arc between two world-space points
+ */
+export function drawInfluenceArc(
+    ctx: CanvasRenderingContext2D,
+    x1: number, y1: number,
+    x2: number, y2: number,
+    alpha: number,
+): void {
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+    const dx = x2 - x1;
+    const dy = y2 - y1;
+    const cpX = midX - dy * 0.22;
+    const cpY = midY + dx * 0.22;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(x1, y1);
+    ctx.quadraticCurveTo(cpX, cpY, x2, y2);
+    ctx.strokeStyle = `rgba(40,30,20,${alpha.toFixed(3)})`;
+    ctx.lineWidth = 1.5;
+    ctx.lineCap = 'round';
+    ctx.stroke();
+    ctx.restore();
+}
+
+/**
  * Draw the world grid
  */
 export function drawGrid(

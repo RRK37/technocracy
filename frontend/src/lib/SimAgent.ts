@@ -11,7 +11,7 @@ import {
     type CharacterData,
 } from '@/src/types/agent';
 import { WORLD_CONFIG, AGENT_CONFIG, DISCUSSION_CONFIG } from './world';
-import { drawSprite, drawShadow, drawSpeechBubble, drawThoughtBubble } from './canvas-utils';
+import { drawSprite, drawShadow, drawSpeechBubble, drawThoughtBubble, drawAgentAura } from './canvas-utils';
 
 const EIGHT_DIRS: MoveDirection[] = [
     'up', 'up-right', 'right', 'down-right',
@@ -65,6 +65,14 @@ export class SimAgent {
     discussionCenterX: number = 0;
     discussionCenterY: number = 0;
 
+    // Cluster aura
+    clusterColor: string | null = null;
+    auraOpacity: number = 0;
+
+    // Gravitational drift target (post-clustering)
+    driftTargetX: number | null = null;
+    driftTargetY: number | null = null;
+
     // Sprites
     walkImage: HTMLImageElement | null = null;
     walkLoaded: boolean = false;
@@ -99,8 +107,22 @@ export class SimAgent {
         this.idleImage.src = this.data.sprites.idle.url;
     }
 
-    /** Pick a random 8-direction and set velocity */
+    /** Pick a random 8-direction and set velocity, biased toward drift target if set */
     setRandomDirection(): void {
+        if (this.driftTargetX !== null && this.driftTargetY !== null) {
+            const ddx = this.driftTargetX - this.x;
+            const ddy = this.driftTargetY - this.y;
+            const dist = Math.sqrt(ddx * ddx + ddy * ddy);
+            if (dist > 120 && Math.random() < 0.65) {
+                const baseAngle = Math.atan2(ddy, ddx);
+                const jitter = (Math.random() - 0.5) * (Math.PI * 0.6);
+                const angle = baseAngle + jitter;
+                this.vx = Math.cos(angle) * AGENT_CONFIG.SPEED;
+                this.vy = Math.sin(angle) * AGENT_CONFIG.SPEED;
+                this.updateDirFromVelocity();
+                return;
+            }
+        }
         this.moveDir = pickRandom8Dir();
         const v = DIR_VECTORS[this.moveDir];
         this.vx = v.dx * AGENT_CONFIG.SPEED;
@@ -111,6 +133,11 @@ export class SimAgent {
     /** Main update tick */
     update(): void {
         this.updateTimers();
+
+        // Fade in cluster aura
+        if (this.clusterColor !== null && this.auraOpacity < 1) {
+            this.auraOpacity = Math.min(1, this.auraOpacity + 0.004);
+        }
 
         switch (this.state) {
             case AgentState.WANDERING:
@@ -262,10 +289,27 @@ export class SimAgent {
         this.setRandomDirection();
     }
 
+    /** Assign a cluster color (fades in via auraOpacity) */
+    setCluster(color: string | null): void {
+        this.clusterColor = color;
+        if (color === null) this.auraOpacity = 0;
+    }
+
+    /** Set the gravitational drift target for post-clustering segregation */
+    setDriftTarget(x: number | null, y: number | null): void {
+        this.driftTargetX = x;
+        this.driftTargetY = y;
+    }
+
     /** Draw this agent */
     draw(ctx: CanvasRenderingContext2D): void {
         const w = AGENT_CONFIG.WIDTH;
         const h = AGENT_CONFIG.HEIGHT;
+
+        // Cluster aura (drawn first, behind shadow and sprite)
+        if (this.clusterColor && this.auraOpacity > 0) {
+            drawAgentAura(ctx, this.x, this.y, this.clusterColor, this.auraOpacity);
+        }
 
         // Shadow
         drawShadow(ctx, this.x, this.y, w);

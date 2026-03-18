@@ -54,6 +54,10 @@ interface AgentStore {
     directChats: Record<string, { role: 'user' | 'agent'; text: string }[]>;
     addDirectChatMessage: (agentId: string, msg: { role: 'user' | 'agent'; text: string }) => void;
 
+    // Cluster label → canvas color (for sidebar legend)
+    clusterColors: Record<string, string>;
+    setClusterColors: (colors: Record<string, string>) => void;
+
     // Selected agent (for detail modal)
     selectedAgentId: string | null;
     setSelectedAgentId: (id: string | null) => void;
@@ -124,6 +128,9 @@ export const useAgentStore = create<AgentStore>((set) => ({
             },
         })),
 
+    clusterColors: {},
+    setClusterColors: (clusterColors) => set({ clusterColors }),
+
     selectedAgentId: null,
     setSelectedAgentId: (selectedAgentId) => set({ selectedAgentId }),
 
@@ -151,6 +158,7 @@ export const useAgentStore = create<AgentStore>((set) => ({
             phase: 'idle',
             clusteredResults: [],
             discussionGroups: [],
+            clusterColors: {},
             generation: s.generation + 1,
             agents: s.agents.map((a) => ({ ...a, answer: '', trace: [] })),
         })),

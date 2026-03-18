@@ -69,6 +69,7 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
     const [expandedCluster, setExpandedCluster] = useState<number | null>(null);
     const agents = useAgentStore((s) => s.agents);
     const setSelectedAgentId = useAgentStore((s) => s.setSelectedAgentId);
+    const clusterColors = useAgentStore((s) => s.clusterColors);
 
     if (!question) {
         return (
@@ -104,6 +105,17 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
                         <div key={i} className="cluster-card" style={{ cursor: 'pointer' }}
                             onClick={() => setExpandedCluster(isExpanded ? null : i)}>
                             <div className="cluster-header">
+                                {clusterColors[cluster.label] && (
+                                    <span style={{
+                                        display: 'inline-block',
+                                        width: 10,
+                                        height: 10,
+                                        borderRadius: '50%',
+                                        background: clusterColors[cluster.label],
+                                        flexShrink: 0,
+                                        marginRight: 7,
+                                    }} />
+                                )}
                                 <span className="cluster-label">{cluster.label}</span>
                                 <span className="cluster-count">
                                     {cluster.count} <span className="cluster-pct">({pct}%)</span>
@@ -117,7 +129,7 @@ export default function ResultsPanel({ question, clusters, phase, totalAgents }:
                             </div>
                             {isExpanded && (
                                 <div className="cluster-agents" onClick={(e) => e.stopPropagation()}>
-                                    {cluster.agentIds.map((agentId) => {
+                                    {[...new Set(cluster.agentIds)].map((agentId) => {
                                         const agent = agents.find((a) => a.id === agentId);
                                         if (!agent) return null;
                                         return (
