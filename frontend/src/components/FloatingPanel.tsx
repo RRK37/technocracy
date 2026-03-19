@@ -23,7 +23,7 @@ const FULL_RATIO = 0.92;
 
 export default function FloatingPanel({ simAgentsRef, onSignOut, onHeightChange }: FloatingPanelProps) {
     const {
-        question, phase, agents, clusteredResults,
+        question, phase, agents, clusteredResults, messages,
         sidebarTab, setSidebarTab,
         selectedAgentId, setSelectedAgentId,
         customAgents, removeCustomAgent,
@@ -219,6 +219,18 @@ export default function FloatingPanel({ simAgentsRef, onSignOut, onHeightChange 
 
                 {/* Expanded content */}
                 <div className="panel-body" style={{ opacity: isExpanded ? 1 : 0, pointerEvents: isExpanded ? 'auto' : 'none' }}>
+                    {/* Message thread — always visible above tab content */}
+                    {messages.length > 0 && (
+                        <div className="panel-messages">
+                            {messages.map((msg, i) => (
+                                <div key={i} className={`panel-msg panel-msg-${msg.role}`}>
+                                    <span className="panel-msg-role">{msg.role === 'user' ? 'You' : 'System'}</span>
+                                    <span className="panel-msg-text">{msg.text}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     {/* Tab content */}
                     <div className="panel-content-scroll">
                         <div className={`panel-tab-pane ${sidebarTab === 'results' ? 'active' : ''}`}>
