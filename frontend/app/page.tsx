@@ -4,7 +4,8 @@ import { useCallback, useRef, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/src/providers/AuthProvider';
 import WorldCanvas from '@/src/components/WorldCanvas';
-import Sidebar from '@/src/components/Sidebar';
+import FloatingPanel from '@/src/components/FloatingPanel';
+import ChatBubble from '@/src/components/ChatBubble';
 import AgentDetailModal from '@/src/components/AgentDetailModal';
 import type { SimAgent } from '@/src/lib/SimAgent';
 import { useMemoryExtraction } from '@/src/hooks/useMemoryExtraction';
@@ -15,8 +16,9 @@ export default function HomePage() {
   const router = useRouter();
   const simAgentsRef = useRef<SimAgent[]>([]);
   const { extractMemories } = useMemoryExtraction();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { selectedAgentId, setSelectedAgentId } = useAgentStore();
+  const [panelHeight, setPanelHeight] = useState(72);
+  const [panelDragging, setPanelDragging] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -26,6 +28,11 @@ export default function HomePage() {
 
   const handleAgentsReady = useCallback((agents: SimAgent[]) => {
     simAgentsRef.current = agents;
+  }, []);
+
+  const handlePanelHeightChange = useCallback((h: number, dragging: boolean) => {
+    setPanelHeight(h);
+    setPanelDragging(dragging);
   }, []);
 
   if (loading) {
@@ -40,28 +47,14 @@ export default function HomePage() {
   if (!user) return null;
 
   return (
-    <div className={`app-layout${sidebarOpen ? ' sidebar-open' : ''}`}>
+    <div className="app-layout">
       <div className="canvas-area">
         <WorldCanvas onAgentsReady={handleAgentsReady} />
       </div>
 
-      <button
-        className="mobile-sidebar-toggle"
-        onClick={() => setSidebarOpen(o => !o)}
-        aria-label={sidebarOpen ? 'Close sidebar' : 'Open sidebar'}
-      >
-        {sidebarOpen ? (
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="4" y1="4" x2="16" y2="16" /><line x1="16" y1="4" x2="4" y2="16" />
-          </svg>
-        ) : (
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <line x1="3" y1="5" x2="17" y2="5" /><line x1="3" y1="10" x2="17" y2="10" /><line x1="3" y1="15" x2="17" y2="15" />
-          </svg>
-        )}
-      </button>
+      <FloatingPanel simAgentsRef={simAgentsRef} onSignOut={signOut} onHeightChange={handlePanelHeightChange} />
 
-      <Sidebar simAgentsRef={simAgentsRef} extractMemories={extractMemories} onSignOut={signOut} />
+      <ChatBubble simAgentsRef={simAgentsRef} extractMemories={extractMemories} panelHeight={panelHeight} panelDragging={panelDragging} />
 
       {selectedAgentId && (
         <AgentDetailModal agentId={selectedAgentId} onClose={() => setSelectedAgentId(null)} />

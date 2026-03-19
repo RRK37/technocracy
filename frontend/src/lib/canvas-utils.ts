@@ -182,11 +182,13 @@ export function drawAgentAura(
     color: string,
     opacity: number,
 ): void {
-    const radius = 54;
+    const radius = 90;
     const cy = y + 18;
     const gradient = ctx.createRadialGradient(x, cy, 0, x, cy, radius);
-    gradient.addColorStop(0,    hexToRgba(color, 0.50 * opacity));
-    gradient.addColorStop(0.45, hexToRgba(color, 0.22 * opacity));
+    gradient.addColorStop(0,    hexToRgba(color, 0.35 * opacity));
+    gradient.addColorStop(0.15, hexToRgba(color, 0.18 * opacity));
+    gradient.addColorStop(0.4,  hexToRgba(color, 0.07 * opacity));
+    gradient.addColorStop(0.7,  hexToRgba(color, 0.02 * opacity));
     gradient.addColorStop(1,    hexToRgba(color, 0));
     ctx.save();
     ctx.beginPath();

@@ -416,16 +416,20 @@ async function finalCluster(
     const store = useAgentStore.getState();
     store.setPhase('clustering');
 
-    const latestAgents = useAgentStore.getState().agents;
-    const answers = latestAgents
-        .filter((a: { answer: string }) => a.answer)
-        .map((a: { id: string; answer: string }) => ({ agentId: a.id, answer: a.answer }));
+    // Skip redundant API call if background clustering ran within the last 3s
+    const timeSinceLastCluster = Date.now() - lastBackgroundClusterAt;
+    if (timeSinceLastCluster > 3000) {
+        const latestAgents = useAgentStore.getState().agents;
+        const answers = latestAgents
+            .filter((a: { answer: string }) => a.answer)
+            .map((a: { id: string; answer: string }) => ({ agentId: a.id, answer: a.answer }));
 
-    try {
-        const { themes } = await callCluster(answers, question);
-        store.setClusteredResults(themes);
-    } catch (err) {
-        console.error('Clustering failed:', err);
+        try {
+            const { themes } = await callCluster(answers, question);
+            store.setClusteredResults(themes);
+        } catch (err) {
+            console.error('Clustering failed:', err);
+        }
     }
 
     store.setPhase('complete');
@@ -465,7 +469,10 @@ export async function saveAndReset(_simAgents: SimAgent[]): Promise<void> {
     useAgentStore.getState().resetSession();
 }
 
-/** Start background clustering interval (every 4s) */
+/** Timestamp of the last successful background cluster (used to debounce final cluster) */
+let lastBackgroundClusterAt = 0;
+
+/** Start background clustering interval (every 7s) */
 function startBackgroundClustering(question: string, gen?: number): ReturnType<typeof setInterval> {
     return setInterval(async () => {
         if (gen !== undefined && isAborted(gen)) return;
@@ -479,9 +486,10 @@ function startBackgroundClustering(question: string, gen?: number): ReturnType<t
             const phase = useAgentStore.getState().phase;
             if (phase !== 'clustering' && phase !== 'complete') {
                 useAgentStore.getState().setClusteredResults(themes);
+                lastBackgroundClusterAt = Date.now();
             }
         } catch (_) { /* ignore interim failures */ }
-    }, 4000);
+    }, 7000);
 }
 
 // ── Main orchestration ─────────────────────────────────────────────
