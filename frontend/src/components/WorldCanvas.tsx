@@ -51,10 +51,8 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
     const influenceArcsRef = useRef<InfluenceArc[]>([]);
     const prevGroupKeysRef = useRef<Set<string>>(new Set());
 
-    // Persistent label→color map (populated from embedding API)
+    // Persistent label→color map (populated from cluster API response)
     const clusterColorMapRef = useRef<Map<string, string>>(new Map());
-    // Track last fetched label set so we don't re-call if labels haven't changed
-    const lastLabelKeyRef = useRef<string>('');
 
     // Camera state
     const cameraRef = useRef<{ x: number; y: number; zoom: number }>({ x: WORLD_CONFIG.WIDTH / 2, y: WORLD_CONFIG.HEIGHT / 2, zoom: CAMERA_CONFIG.DEFAULT_ZOOM });
@@ -198,7 +196,6 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
         influenceArcsRef.current = [];
         prevGroupKeysRef.current.clear();
         clusterColorMapRef.current.clear();
-        lastLabelKeyRef.current = '';
     }, [generation]);
 
     // Propagate cluster colors + drift targets when results arrive (feature 1, 4)
@@ -220,60 +217,17 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
             });
         });
 
-        // Re-apply cached colors for agents whose label we already know
+        // Apply colors from cluster response (or fallback palette)
         const colorMap = clusterColorMapRef.current;
-        clusteredResults.forEach(cluster => {
-            const color = colorMap.get(cluster.label);
-            if (color) {
-                cluster.agentIds.forEach(id => {
-                    const agent = simAgentsRef.current.find(a => a.id === id);
-                    if (agent) agent.setCluster(color);
-                });
-            }
-        });
-
-        // Only fetch embeddings when the label set actually changes
-        const labels = clusteredResults.map(c => c.label);
-        const labelKey = [...labels].sort().join('||');
-        if (labelKey === lastLabelKeyRef.current) return;
-        lastLabelKeyRef.current = labelKey;
-
-        fetch('/api/cluster-colors', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ labels }),
-        })
-            .then(r => r.json())
-            .then(({ colors }: { colors: Record<string, string> }) => {
-                // Discard if the cluster set changed while we were waiting
-                if (lastLabelKeyRef.current !== labelKey) return;
-                Object.entries(colors).forEach(([label, color]) => colorMap.set(label, color));
-                useAgentStore.getState().setClusterColors(Object.fromEntries(colorMap));
-                // Apply to agents
-                clusteredResults.forEach(cluster => {
-                    const color = colorMap.get(cluster.label);
-                    if (color) {
-                        cluster.agentIds.forEach(id => {
-                            const agent = simAgentsRef.current.find(a => a.id === id);
-                            if (agent) agent.setCluster(color);
-                        });
-                    }
-                });
-            })
-            .catch(() => {
-                // Fallback to palette on error
-                clusteredResults.forEach((cluster, i) => {
-                    if (!colorMap.has(cluster.label)) {
-                        colorMap.set(cluster.label, FALLBACK_COLORS[i % FALLBACK_COLORS.length]);
-                    }
-                    const color = colorMap.get(cluster.label)!;
-                    cluster.agentIds.forEach(id => {
-                        const agent = simAgentsRef.current.find(a => a.id === id);
-                        if (agent) agent.setCluster(color);
-                    });
-                });
-                useAgentStore.getState().setClusterColors(Object.fromEntries(colorMap));
+        clusteredResults.forEach((cluster, i) => {
+            const color = cluster.color ?? FALLBACK_COLORS[i % FALLBACK_COLORS.length];
+            colorMap.set(cluster.label, color);
+            cluster.agentIds.forEach(id => {
+                const agent = simAgentsRef.current.find(a => a.id === id);
+                if (agent) agent.setCluster(color);
             });
+        });
+        useAgentStore.getState().setClusterColors(Object.fromEntries(colorMap));
     }, [clusteredResults]);
 
     // Game loop
@@ -331,9 +285,12 @@ export default function WorldCanvas({ onAgentsReady }: WorldCanvasProps) {
                 const members = arc.agentIds
                     .map(id => agents.find(a => a.id === id))
                     .filter((a): a is SimAgent => a !== undefined);
+                // Centroid of the group – arcs bend away from it
+                const cx = members.reduce((s, a) => s + a.x, 0) / members.length;
+                const cy = members.reduce((s, a) => s + a.y, 0) / members.length;
                 for (let i = 0; i < members.length; i++) {
                     for (let j = i + 1; j < members.length; j++) {
-                        drawInfluenceArc(ctx!, members[i].x, members[i].y, members[j].x, members[j].y, alpha);
+                        drawInfluenceArc(ctx!, members[i].x, members[i].y, members[j].x, members[j].y, alpha, cx, cy);
                     }
                 }
             }

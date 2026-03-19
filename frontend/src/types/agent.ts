@@ -84,6 +84,7 @@ export interface ThemeCluster {
     count: number;
     agentIds: string[];
     sentiment?: 'positive' | 'negative' | 'neutral';
+    color?: string;
 }
 
 /** A saved question + results */

@@ -197,20 +197,46 @@ export function drawAgentAura(
 }
 
 /**
- * Draw a fading quadratic arc between two world-space points
+ * Draw a fading quadratic arc between two world-space points.
+ * When a repel point (cx, cy) is provided the arc bends away from it,
+ * so arcs within a discussion group fan outward from the group centre.
  */
 export function drawInfluenceArc(
     ctx: CanvasRenderingContext2D,
     x1: number, y1: number,
     x2: number, y2: number,
     alpha: number,
+    cx?: number, cy?: number,
 ): void {
     const midX = (x1 + x2) / 2;
     const midY = (y1 + y2) / 2;
     const dx = x2 - x1;
     const dy = y2 - y1;
-    const cpX = midX - dy * 0.22;
-    const cpY = midY + dx * 0.22;
+    const len = Math.sqrt(dx * dx + dy * dy) || 1;
+
+    let nx: number, ny: number;
+    if (cx !== undefined && cy !== undefined) {
+        // Push the control point away from the group centre
+        const awayX = midX - cx;
+        const awayY = midY - cy;
+        const awayLen = Math.sqrt(awayX * awayX + awayY * awayY);
+        if (awayLen > 0.01) {
+            nx = awayX / awayLen;
+            ny = awayY / awayLen;
+        } else {
+            // Edge midpoint coincides with centre – fall back to perpendicular
+            nx = -dy / len;
+            ny = dx / len;
+        }
+    } else {
+        nx = -dy / len;
+        ny = dx / len;
+    }
+
+    const bulge = len * 0.22;
+    const cpX = midX + nx * bulge;
+    const cpY = midY + ny * bulge;
+
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(x1, y1);

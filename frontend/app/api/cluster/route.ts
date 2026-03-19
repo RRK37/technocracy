@@ -5,6 +5,17 @@ const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
 });
 
+function hslToHex(h: number, s: number, l: number): string {
+    s /= 100; l /= 100;
+    const a = s * Math.min(l, 1 - l);
+    const f = (n: number) => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+        return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+}
+
 const MAX_QUESTION_LEN = 500;
 const MAX_ANSWERS = 150;
 const MAX_ANSWER_LEN = 500;
@@ -70,6 +81,30 @@ Keep theme labels concise (2-5 words). Order by count descending. Respond ONLY w
 
         const content = response.choices[0].message.content;
         const parsed = JSON.parse(content || '{"themes":[]}');
+
+        // Derive a deterministic color for each theme label from its embedding
+        const labels: string[] = (parsed.themes || []).map((t: { label: string }) => t.label);
+        if (labels.length > 0) {
+            try {
+                const embResponse = await openai.embeddings.create({
+                    model: 'text-embedding-3-small',
+                    input: labels,
+                });
+                const vectors = embResponse.data
+                    .sort((a, b) => a.index - b.index)
+                    .map(e => e.embedding);
+
+                vectors.forEach((vec, i) => {
+                    // Use two fixed dimensions to derive a hue deterministically
+                    const angle = Math.atan2(vec[1], vec[0]); // -π to π
+                    const hue = ((angle / (2 * Math.PI)) * 360 + 360) % 360;
+                    parsed.themes[i].color = hslToHex(hue, 68, 50);
+                });
+            } catch (err) {
+                console.error('Embedding for cluster colors failed:', err);
+                // Leave themes without color — client will use fallback
+            }
+        }
 
         return NextResponse.json(parsed);
     } catch (error: unknown) {
