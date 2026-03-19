@@ -185,16 +185,15 @@ export function drawAgentAura(
     const radius = 90;
     const cy = y + 18;
     const gradient = ctx.createRadialGradient(x, cy, 0, x, cy, radius);
-    gradient.addColorStop(0,    hexToRgba(color, 0.35 * opacity));
-    gradient.addColorStop(0.15, hexToRgba(color, 0.18 * opacity));
-    gradient.addColorStop(0.4,  hexToRgba(color, 0.07 * opacity));
-    gradient.addColorStop(0.7,  hexToRgba(color, 0.02 * opacity));
+    gradient.addColorStop(0,    hexToRgba(color, 0.35));
+    gradient.addColorStop(0.15, hexToRgba(color, 0.18));
+    gradient.addColorStop(0.4,  hexToRgba(color, 0.07));
+    gradient.addColorStop(0.7,  hexToRgba(color, 0.02));
     gradient.addColorStop(1,    hexToRgba(color, 0));
     ctx.save();
-    ctx.beginPath();
-    ctx.arc(x, cy, radius, 0, Math.PI * 2);
+    ctx.globalAlpha = opacity;
     ctx.fillStyle = gradient;
-    ctx.fill();
+    ctx.fillRect(x - radius, cy - radius, radius * 2, radius * 2);
     ctx.restore();
 }
 
